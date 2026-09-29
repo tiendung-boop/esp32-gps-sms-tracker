@@ -1,0 +1,77 @@
+HUONG DAN MO VA SU DUNG TRANG "THU" / "PHAT" (theo doi vi tri ESP32)
+=====================================================================
+Muc dich: xem vi tri ESP32 (module GPS NEO-6M, sketch GpsPosSender)
+tren ban do song, qua server relay dung chung o
+  lam_viec/vi-tri-server/server.js
+Chi tiet day du (bao gom trien khai HTTPS/tunnel cho hang tram thiet
+bi) nam o lam_viec/HUONG_DAN.txt, muc "CONG CU THEO DOI VI TRI NHIEU
+THIET BI". File nay chi tom tat cach bat/dung nhanh cho ESP_GPS.
+
+BUOC 1: CHAY SERVER
+----------------------
+1. Mo terminal, vao thu muc server:
+     cd lam_viec/vi-tri-server
+2. Lan dau tien (chi 1 lan):
+     npm install
+3. Chay server:
+     node server.js
+   (hoac "npm start")
+4. Terminal se in ra vai dong dai loai:
+     Vi tri server dang chay tai cong 8877
+       Trang thu (dashboard):  http://localhost:8877/thu
+       Trang phat (beacon):    http://localhost:8877/phat
+     Cac thiet bi cung mang LAN/WiFi co the mo:
+       http://<IP-LAN-cua-may>:8877/phat  (va /thu)
+   Giu terminal nay mo - dong lai la server tat, ESP32/trang thu se
+   khong gui/nhan duoc vi tri nua.
+
+BUOC 2: MO TRANG "THU" (dashboard xem ban do)
+--------------------------------------------------
+1. Mo trinh duyet toi http://localhost:8877/thu
+2. O o "Ma phong": nhap dung ma phong ma ESP32 dang dung. Mac dinh
+   trong GpsPosSender/GpsPosSender.ino la ROOM_CODE = "000" - neu
+   chua doi gi thi go "000" roi bam "Ket noi".
+3. Khi ESP32 (hoac trang "phat") bat dau gui vi tri cung phong, marker
+   se tu hien tren ban do. Bam vao thiet bi trong danh sach ben trai
+   de phong to toi vi tri / xem duong di gan nhat.
+
+BUOC 3: (TUY CHON) MO TRANG "PHAT" DE TEST BANG TAY, KHONG CAN ESP32
+--------------------------------------------------------------------
+Dung khi muon test nhanh dashboard "thu" ma chua co ESP32/GPS that:
+1. Mo http://localhost:8877/phat (tren dien thoai/may tinh co GPS/trinh
+   duyet cho xin quyen vi tri).
+2. Nhap cung "Ma phong" nhu o Buoc 2 (vd "000"), dat ten thiet bi.
+3. Bam "Bat dau phat" - trinh duyet xin quyen vi tri roi tu dong gui
+   dinh ky (5s/lan mac dinh) len phong. Trang "thu" se thay marker
+   ngay lap tuc.
+4. Bam "Dung phat" khi test xong.
+
+GHI CHU VE ESP32 (GpsPosSender.ino)
+---------------------------------------
+- Sketch tu dong gui vi tri qua GET /api/pos (khong can trinh duyet),
+  moi 5 giay/lan (SEND_INTERVAL_MS), voi ROOM_CODE + DEVICE_ID/NAME
+  khai bao san trong file .ino.
+- SERVER_BASE trong GpsPosSender.ino PHAI tro dung dia chi server dang
+  chay o Buoc 1:
+    - Test tren cung 1 may (may tinh vua chay server): dung cung
+      mang WiFi thi doi thanh "http://<IP-LAN-cua-may>:8877" (khong
+      dung "localhost" vi do la dia chi cua ESP32, khong phai may
+      chay server).
+    - Dung Cloudflare quick tunnel (vd de test tu mang di dong khac):
+      link "https://....trycloudflare.com" DOI MOI LAN chay lai lenh
+      "cloudflared tunnel --url http://localhost:8877" - phai sua lai
+      SERVER_BASE va NAP LAI sketch moi khi link doi.
+- Neu trang "thu" khong thay marker: kiem tra ESP32 da co GPS fix
+  (den LED module GPS thuong nhap nhay khi co fix), ESP32 da ket noi
+  WiFi thanh cong (xem Serial Monitor), va ma phong o "thu" khop voi
+  ROOM_CODE trong sketch.
+
+LOI THUONG GAP
+------------------
+- "Access Error: 404 -- Not Found" khi mo :8877 -> cong dang bi phan
+  mem khac chiem, doi PORT khac (vd "set PORT=8971 && node server.js"
+  tren Windows) roi thu lai. Xem chi tiet o lam_viec/HUONG_DAN.txt.
+- Dien thoai xin quyen vi tri o trang "phat" bi tu choi/khong hien
+  hop thoai: GPS trinh duyet chi hoat dong qua HTTPS hoac localhost -
+  neu dung dia chi IP LAN qua http:// tren dien thoai, xem phan
+  "GPS CAN HTTPS" trong lam_viec/HUONG_DAN.txt de dung tunnel.

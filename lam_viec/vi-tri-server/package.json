@@ -1,0 +1,13 @@
+{
+  "name": "vi-tri-server",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Relay WebSocket theo phong (room code) cho phat-vi-tri-tool.html / thu-vi-tri-tool.html. Khong build step, chi 1 dependency (ws).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

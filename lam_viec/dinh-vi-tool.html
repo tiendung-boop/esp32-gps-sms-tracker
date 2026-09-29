@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ban do nguon mo + Dinh vi (GPS)</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f8;
+    --panel-bg: #ffffff;
+    --card-bg: #fcfcfd;
+    --border: #dfe0e6;
+    --text: #1a1a1f;
+    --muted: #6b6b76;
+    --accent: #2563eb;
+    --accent-2: #16a34a;
+    --danger: #dc2626;
+    --shadow: 0 1px 2px rgba(15, 15, 20, .05);
+    --warn-bg: #fef3c7;
+    --warn-text: #92400e;
+    --warn-border: #f59e0b;
+    --console-bg: #17181d;
+    --console-text: #d7d9e0;
+    --history-color: #9333ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181c;
+      --panel-bg: #1f2025;
+      --card-bg: #232429;
+      --border: #34353c;
+      --text: #ececf0;
+      --muted: #9a9aa5;
+      --shadow: none;
+      --warn-bg: rgba(245, 158, 11, .12);
+      --warn-text: #fbbf24;
+      --warn-border: rgba(245, 158, 11, .4);
+      --console-bg: #101114;
+      --console-text: #c9cbd3;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  #app { display: flex; height: 100vh; }
+  #panel {
+    width: 360px;
+    min-width: 320px;
+    background: var(--panel-bg);
+    border-right: 1px solid var(--border);
+    padding: 18px;
+    overflow-y: auto;
+  }
+
+  /* ---------- Brand header ---------- */
+  #brandHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  #brandMark {
+    width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #brandHeader h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  #brandHeader p.sub { color: var(--muted); font-size: 11.5px; margin: 2px 0 0; }
+
+  /* ---------- Alert ---------- */
+  #warnBox {
+    display: none;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--warn-bg);
+    color: var(--warn-text);
+    border: 1px solid var(--warn-border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  #warnBox svg { flex-shrink: 0; margin-top: 1px; }
+  #warnBox strong { display: block; margin-bottom: 2px; font-size: 12px; }
+  #warnBox p { margin: 0; }
+
+  /* ---------- Cards ---------- */
+  section {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+  section:last-child { margin-bottom: 0; }
+  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .card-head > svg { color: var(--accent); flex-shrink: 0; }
+  .card-head h2 { flex: 1; margin: 0; font-size: 13px; font-weight: 700; color: var(--text); }
+  section p.note { color: var(--muted); font-size: 11.5px; margin: 8px 0 0; line-height: 1.5; }
+
+  /* ---------- Status pill ---------- */
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+    padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.waiting { color: #b45309; background: rgba(245, 158, 11, .12); border-color: rgba(245, 158, 11, .35); }
+  .pill.waiting .dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+  .pill.active { color: var(--accent-2); background: rgba(22, 163, 74, .12); border-color: rgba(22, 163, 74, .35); }
+  .pill.active .dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+  .pill.error { color: var(--danger); background: rgba(220, 38, 38, .12); border-color: rgba(220, 38, 38, .35); }
+  @media (prefers-color-scheme: dark) {
+    .pill.waiting { color: #fbbf24; }
+    .pill.active { color: #4ade80; }
+    .pill.error { color: #f87171; }
+  }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+  /* ---------- Buttons ---------- */
+  .row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .row > * { flex: 1; }
+  button {
+    font: inherit;
+    font-weight: 500;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 12px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--panel-bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: background .12s ease, border-color .12s ease, color .12s ease, opacity .12s ease;
+  }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.start { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
+  button.end { background: var(--danger); border-color: var(--danger); color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .icon { width: 18px; height: 18px; }
+  .icon-sm { width: 14px; height: 14px; flex-shrink: 0; }
+
+  /* ---------- Switch ---------- */
+  .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; margin-bottom: 10px; }
+  .switch {
+    width: 38px; height: 22px; padding: 2px; flex-shrink: 0;
+    border-radius: 999px; border: none; background: var(--border); position: relative;
+  }
+  .switch-thumb {
+    display: block; width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3);
+    transform: translateX(0); transition: transform .15s ease;
+  }
+  .switch.active { background: var(--accent-2); }
+  .switch.active .switch-thumb { transform: translateX(16px); }
+
+  /* ---------- Toa do ---------- */
+  .coord-box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .coord-main {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 16px; font-weight: 600; color: var(--text); letter-spacing: .2px;
+  }
+  .coord-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .coord-meta div { display: flex; flex-direction: column; gap: 2px; }
+  .coord-meta span { color: var(--muted); text-transform: uppercase; letter-spacing: .03em; font-size: 9.5px; }
+  .coord-meta b { color: var(--text); font-weight: 600; font-size: 12px; }
+  .addr-row { display: flex; gap: 6px; align-items: flex-start; margin-top: 10px; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+  .addr-row .icon-sm { margin-top: 2px; color: var(--muted); }
+
+  /* ---------- Lich su ---------- */
+  .ghost-icon {
+    width: 28px; height: 28px; padding: 0; flex-shrink: 0;
+    border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--muted);
+  }
+  .ghost-icon:hover:not(:disabled) { background: var(--bg); border-color: var(--border); color: var(--danger); }
+  .toggle-pill { width: 100%; font-weight: 600; font-size: 13px; }
+  .toggle-pill .icon-off { display: none; }
+  .toggle-pill[aria-pressed="true"] {
+    background: rgba(147, 51, 234, .12); border-color: var(--history-color); color: var(--history-color);
+  }
+  .toggle-pill[aria-pressed="true"] .icon-on { display: none; }
+  .toggle-pill[aria-pressed="true"] .icon-off { display: inline-block; }
+
+  /* ---------- Console / log ---------- */
+  #log {
+    background: var(--console-bg);
+    color: var(--console-text);
+    border-radius: 8px;
+    padding: 10px 11px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    max-height: 140px;
+    overflow-y: auto;
+  }
+
+  main { flex: 1; position: relative; }
+  #map { width: 100%; height: 100%; }
+  #hint {
+    position: absolute; bottom: 12px; left: 12px; z-index: 1000;
+    background: var(--panel-bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--muted);
+    box-shadow: var(--shadow);
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <header id="brandHeader">
+      <div id="brandMark">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="2.5"></circle>
+          <line x1="12" y1="2" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="22"></line>
+          <line x1="2" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="22" y2="12"></line>
+        </svg>
+      </div>
+      <div>
+        <h1>Ban do &amp; Dinh vi</h1>
+        <p class="sub">Nen OpenStreetMap - mien phi, khong can token</p>
+      </div>
+    </header>
+
+    <div id="warnBox">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+      <div>
+        <strong>Chua o ket noi an toan</strong>
+        <p>Trang chua duoc mo qua HTTPS/localhost nen trinh duyet co the tu choi cap quyen vi tri.
+          Hay chay 1 server local roi mo qua http://localhost, thay vi mo truc tiep bang double-click file.</p>
+      </div>
+    </div>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="2.5"></circle>
+          <line x1="12" y1="2" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="22"></line>
+          <line x1="2" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="22" y2="12"></line>
+        </svg>
+        <h2>Dinh vi (GPS)</h2>
+        <span id="gpsPill" class="pill idle"><span class="dot"></span><span class="pill-label">Chua bat</span></span>
+      </div>
+      <div class="row">
+        <button id="btnStart" class="start">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Bat dinh vi
+        </button>
+        <button id="btnStop" class="end" disabled>
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect></svg>
+          Tat dinh vi
+        </button>
+      </div>
+      <div class="switch-row">
+        <span>Tu dong theo doi vi tri</span>
+        <button id="btnFollow" class="switch active" role="switch" aria-checked="true" aria-label="Tu dong theo doi vi tri">
+          <span class="switch-thumb"></span>
+        </button>
+      </div>
+      <div id="status" class="note">Chua bat dinh vi.</div>
+    </section>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>
+        </svg>
+        <h2>Vi tri hien tai</h2>
+      </div>
+      <div class="coord-box">
+        <div id="coords">
+          <div class="coord-main">Chua co du lieu</div>
+        </div>
+      </div>
+      <div id="address" class="addr-row">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>
+        </svg>
+        <span>Dia chi: chua co du lieu.</span>
+      </div>
+      <button id="btnDownload" class="primary" disabled style="width:100%; margin-top:12px">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Tai GeoJSON vi tri hien tai
+      </button>
+      <p class="note">File tai ve la 1 Point GeoJSON, co the keo tha vao geojson.io de xem chung voi du lieu khac.</p>
+    </section>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15.5 14"></polyline>
+        </svg>
+        <h2>Lich Su</h2>
+        <span id="historyCount" class="pill">0 diem</span>
+        <button id="btnClearHistory" class="ghost-icon" title="Xoa lich su" aria-label="Xoa lich su">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+        </button>
+      </div>
+      <button id="btnHistory" class="toggle-pill" aria-pressed="false">
+        <svg class="icon-sm icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        <svg class="icon-sm icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94"></path>
+          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-3.22 4.31"></path>
+          <line x1="1" y1="1" x2="23" y2="23"></line>
+        </svg>
+        <span id="btnHistoryLabel">Hien</span>
+      </button>
+    </section>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line>
+          <line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>
+        </svg>
+        <h2>Nhat Ky</h2>
+      </div>
+      <div id="log">San sang.</div>
+    </section>
+  </aside>
+  <main>
+    <div id="map"></div>
+    <div id="hint">Di chuot tren ban do de xem toa do</div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---------- DOM ----------
+  var btnStart = document.getElementById('btnStart');
+  var btnStop = document.getElementById('btnStop');
+  var btnFollow = document.getElementById('btnFollow');
+  var btnDownload = document.getElementById('btnDownload');
+  var statusEl = document.getElementById('status');
+  var coordsEl = document.getElementById('coords');
+  var addressEl = document.getElementById('address').querySelector('span');
+  var logEl = document.getElementById('log');
+  var warnBox = document.getElementById('warnBox');
+  var hintEl = document.getElementById('hint');
+  var btnHistory = document.getElementById('btnHistory');
+  var btnHistoryLabel = document.getElementById('btnHistoryLabel');
+  var btnClearHistory = document.getElementById('btnClearHistory');
+  var historyCountEl = document.getElementById('historyCount');
+  var gpsPillEl = document.getElementById('gpsPill');
+  var gpsPillLabel = gpsPillEl.querySelector('.pill-label');
+
+  function log(msg) {
+    var time = new Date().toLocaleTimeString();
+    logEl.textContent = '[' + time + '] ' + msg + '\n' + logEl.textContent;
+  }
+
+  function setGpsPill(kind, text) {
+    gpsPillEl.className = 'pill ' + kind;
+    gpsPillLabel.textContent = text;
+  }
+
+  if (!window.isSecureContext) {
+    warnBox.style.display = 'flex';
+  }
+
+  // ---------- Map ----------
+  var map = L.map('map').setView([21.0285, 105.8542], 13); // mac dinh: Ha Noi
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  map.on('mousemove', function (e) {
+    hintEl.textContent = 'Toa do: ' + e.latlng.lat.toFixed(6) + ', ' + e.latlng.lng.toFixed(6);
+  });
+  map.on('mouseout', function () {
+    hintEl.textContent = 'Di chuot tren ban do de xem toa do';
+  });
+
+  var posMarker = null;
+  var accCircle = null;
+
+  // ---------- Lich su di chuyen ----------
+  // Ghi lai cac diem vi tri da di qua. Khong hien danh sach, chi ve len ban do
+  // khi bam nut: duoi 15 diem thi cham tung diem, tu 15 diem tro len thi noi
+  // thanh 1 duong ke (polyline). Bo qua diem qua gan diem truoc do de tranh
+  // nhieu GPS lam day mang khi dung yen.
+  var HISTORY_MIN_DIST_M = 5;
+  var HISTORY_MAX_POINTS = 5000;
+  var historyPoints = []; // [[lat, lon], ...]
+  var historyVisible = false;
+  var historyLayer = L.layerGroup();
+
+  function updateHistoryCount() {
+    historyCountEl.textContent = historyPoints.length + ' diem';
+  }
+
+  function renderHistory() {
+    historyLayer.clearLayers();
+    if (historyPoints.length === 0) return;
+    if (historyPoints.length >= 15) {
+      L.polyline(historyPoints, { color: '#9333ea', weight: 4, opacity: 0.8 }).addTo(historyLayer);
+    } else {
+      historyPoints.forEach(function (p) {
+        L.circleMarker(p, { radius: 4, color: '#9333ea', fillColor: '#9333ea', fillOpacity: 0.9, weight: 1 }).addTo(historyLayer);
+      });
+    }
+  }
+
+  function pushHistoryPoint(lat, lon) {
+    var last = historyPoints[historyPoints.length - 1];
+    if (last && haversineMeters(lat, lon, last[0], last[1]) < HISTORY_MIN_DIST_M) return;
+    historyPoints.push([lat, lon]);
+    if (historyPoints.length > HISTORY_MAX_POINTS) historyPoints.shift();
+    updateHistoryCount();
+    if (historyVisible) renderHistory();
+  }
+
+  btnHistory.addEventListener('click', function () {
+    historyVisible = !historyVisible;
+    btnHistory.setAttribute('aria-pressed', String(historyVisible));
+    btnHistoryLabel.textContent = historyVisible ? 'An' : 'Hien';
+    if (historyVisible) {
+      renderHistory();
+      historyLayer.addTo(map);
+    } else {
+      map.removeLayer(historyLayer);
+    }
+  });
+
+  btnClearHistory.addEventListener('click', function () {
+    historyPoints = [];
+    updateHistoryCount();
+    if (historyVisible) renderHistory();
+    log('Da xoa lich su di chuyen.');
+  });
+
+  // ---------- Tien ich toa do ----------
+  function haversineMeters(lat1, lon1, lat2, lon2) {
+    var R = 6371000;
+    var toRad = function (d) { return d * Math.PI / 180; };
+    var dLat = toRad(lat2 - lat1);
+    var dLon = toRad(lon2 - lon1);
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  // ---------- Reverse geocoding (Nominatim - mien phi, khong can key) ----------
+  // Nominatim yeu cau khong goi qua 1 request/giay; o day chi goi khi vi tri
+  // doi dang ke (>25m) VA cach lan goi truoc >=12s, nen luon an toan hon nhieu.
+  var lastGeocodeAt = 0;
+  var lastGeocodeLatLng = null;
+
+  function maybeReverseGeocode(lat, lon) {
+    var now = Date.now();
+    var movedEnough = !lastGeocodeLatLng || haversineMeters(lat, lon, lastGeocodeLatLng[0], lastGeocodeLatLng[1]) > 25;
+    if (now - lastGeocodeAt < 12000 || !movedEnough) return;
+    lastGeocodeAt = now;
+    lastGeocodeLatLng = [lat, lon];
+
+    var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + lat + '&lon=' + lon + '&accept-language=vi&zoom=18';
+    fetch(url).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).then(function (data) {
+      addressEl.textContent = 'Dia chi: ' + (data && data.display_name ? data.display_name : 'khong xac dinh duoc');
+    }).catch(function (err) {
+      addressEl.textContent = 'Dia chi: khong tra duoc (loi mang/Nominatim).';
+      log('Loi reverse geocode: ' + err.message);
+    });
+  }
+
+  // ---------- Geolocation ----------
+  var watchId = null;
+  var followEnabled = true;
+  var lastPosition = null; // GeoolocationPosition
+  var firstFix = true;
+
+  function errorMessage(err) {
+    switch (err.code) {
+      case err.PERMISSION_DENIED:
+        return 'Bi tu choi quyen truy cap vi tri.';
+      case err.POSITION_UNAVAILABLE:
+        return 'Khong xac dinh duoc vi tri (GPS/mang yeu).';
+      case err.TIMEOUT:
+        return 'Het thoi gian cho vi tri, thu lai.';
+      default:
+        return 'Loi khong xac dinh: ' + err.message;
+    }
+  }
+
+  function onPositionSuccess(pos) {
+    lastPosition = pos;
+    var c = pos.coords;
+    var latlng = [c.latitude, c.longitude];
+
+    if (!posMarker) {
+      posMarker = L.circleMarker(latlng, {
+        radius: 7, color: '#2563eb', fillColor: '#2563eb', fillOpacity: 1, weight: 2
+      }).addTo(map);
+      accCircle = L.circle(latlng, { radius: c.accuracy || 0, color: '#2563eb', weight: 1, fillOpacity: 0.1 }).addTo(map);
+    } else {
+      posMarker.setLatLng(latlng);
+      accCircle.setLatLng(latlng);
+      accCircle.setRadius(c.accuracy || 0);
+    }
+
+    if (firstFix) {
+      map.setView(latlng, 17);
+      firstFix = false;
+    } else if (followEnabled) {
+      map.panTo(latlng);
+    }
+
+    setGpsPill('active', 'Dang theo doi');
+    statusEl.textContent = 'Dang theo doi vi tri...';
+    coordsEl.innerHTML =
+      '<div class="coord-main">' + c.latitude.toFixed(6) + ', ' + c.longitude.toFixed(6) + '</div>' +
+      '<div class="coord-meta">' +
+        '<div><span>Do chinh xac</span><b>&plusmn;' + Math.round(c.accuracy || 0) + ' m</b></div>' +
+        '<div><span>Toc do</span><b>' + (c.speed != null ? Math.round(c.speed * 3.6) + ' km/h' : '--') + '</b></div>' +
+        '<div><span>Cap nhat</span><b>' + new Date(pos.timestamp).toLocaleTimeString() + '</b></div>' +
+      '</div>';
+
+    btnDownload.disabled = false;
+    pushHistoryPoint(c.latitude, c.longitude);
+    maybeReverseGeocode(c.latitude, c.longitude);
+    log('Cap nhat vi tri: ' + c.latitude.toFixed(6) + ', ' + c.longitude.toFixed(6) + ' (±' + Math.round(c.accuracy || 0) + 'm)');
+  }
+
+  function onPositionError(err) {
+    var msg = errorMessage(err);
+    setGpsPill('error', 'Loi');
+    statusEl.textContent = 'Loi: ' + msg;
+    log('Loi dinh vi: ' + msg);
+  }
+
+  btnStart.addEventListener('click', function () {
+    if (!('geolocation' in navigator)) {
+      statusEl.textContent = 'Trinh duyet nay khong ho tro Geolocation API.';
+      log('Khong co navigator.geolocation.');
+      return;
+    }
+    firstFix = true;
+    watchId = navigator.geolocation.watchPosition(onPositionSuccess, onPositionError, {
+      enableHighAccuracy: true,
+      maximumAge: 5000,
+      timeout: 15000
+    });
+    setGpsPill('waiting', 'Dang cho GPS');
+    statusEl.textContent = 'Da bat dinh vi, dang cho GPS...';
+    log('Da bat dinh vi (watchPosition).');
+    btnStart.disabled = true;
+    btnStop.disabled = false;
+  });
+
+  btnStop.addEventListener('click', function () {
+    if (watchId != null) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }
+    setGpsPill('idle', 'Da dung');
+    statusEl.textContent = 'Da dung dinh vi.';
+    log('Da dung dinh vi.');
+    btnStart.disabled = false;
+    btnStop.disabled = true;
+  });
+
+  btnFollow.addEventListener('click', function () {
+    followEnabled = !followEnabled;
+    btnFollow.classList.toggle('active', followEnabled);
+    btnFollow.setAttribute('aria-checked', String(followEnabled));
+    if (followEnabled && lastPosition) {
+      map.panTo([lastPosition.coords.latitude, lastPosition.coords.longitude]);
+    }
+  });
+
+  btnDownload.addEventListener('click', function () {
+    if (!lastPosition) return;
+    var c = lastPosition.coords;
+    var geojson = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: {
+          accuracy_m: c.accuracy || null,
+          speed_mps: c.speed != null ? c.speed : null,
+          heading_deg: c.heading != null ? c.heading : null,
+          timestamp: new Date(lastPosition.timestamp).toISOString()
+        },
+        geometry: { type: 'Point', coordinates: [c.longitude, c.latitude] }
+      }]
+    };
+    var blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/geo+json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'vi-tri-hien-tai.geojson';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    log('Da tai GeoJSON vi tri hien tai.');
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,520 @@
+====================================================
+HUONG DAN SU DUNG geojson.io (chay local tren may)
+====================================================
+
+geojson.io la gi?
+------------------
+Cong cu web mien phi de VE, XEM va CHINH SUA du lieu ban do
+(GeoJSON, KML, CSV, Shapefile) ngay tren trinh duyet.
+Ban dang chay MOT BAN SAO RIENG cua no tren may tinh cua ban
+(khong phai trang geojson.io cong khai tren Internet).
+
+
+BUOC 1: MO SERVER (bat buoc lam truoc, moi lan)
+------------------------------------------------
+1. Mo terminal (PowerShell hoac Git Bash)
+2. Go lenh:
+
+   cd "c:\Users\ygost\geojson.io-main\geojson.io-main"
+   npm run dev -- --host
+
+3. Doi den khi thay dong chu:
+
+   Local:   http://localhost:5173/
+
+   => Server da san sang.
+
+LUU Y:
+- Phai GIU terminal nay MO thi trang moi dung duoc.
+- Neu dong terminal / tat may => phai chay lai lenh tren.
+
+
+BUOC 2: MO TRANG WEB
+----------------------
+Mo trinh duyet (Chrome/Edge...) va vao dia chi:
+
+   http://localhost:5173
+
+Neu khong vao duoc, thu them:
+   http://127.0.0.1:5173
+
+
+BUOC 3: DUNG SERVER (khi khong dung nua)
+-------------------------------------------
+Quay lai terminal dang chay, nhan: Ctrl + C
+
+
+CACH THAO TAC TREN GEOJSON.IO
+================================
+- Cong cu ve (o thanh ben trai/tren): chon de ve Diem, Duong,
+  Da giac, Hinh chu nhat, Hinh tron truc tiep len ban do.
+- Click chon 1 feature de sua thuoc tinh (properties) cua no.
+- Co the chon nhieu feature cung luc (multiselect) de sua hang loat.
+- Bang du lieu (Table Panel): xem/sua thuoc tinh dang bang, giong Excel.
+- Import du lieu: keo tha (drag & drop) file GeoJSON/KML/CSV/Shapefile
+  vao trang, hoac dung nut Import.
+- Export du lieu: dung nut Export/Save de tai file ve may
+  (chon dinh dang GeoJSON, KML, CSV...).
+- Co phim tat (keyboard shortcuts) de ve/sua nhanh hon.
+
+
+THONG TIN KY THUAT (neu can debug sau nay)
+=============================================
+- Thu muc du an:
+  c:\Users\ygost\geojson.io-main\geojson.io-main
+
+- File cau hinh token ban do (Mapbox):
+  c:\Users\ygost\geojson.io-main\geojson.io-main\.env
+  (bien VITE_PUBLIC_MAPBOX_TOKEN - da dien san)
+
+- Ung dung CAN CO INTERNET de tai anh ban do nen (tu Mapbox).
+  Neu mat mang, trang van mo duoc nhung ban do nen se khong hien.
+
+- Cac lenh khac (chay trong thu muc du an o tren):
+  npm install        -> cai lai thu vien (neu can)
+  npm run build       -> build ban production
+  npm run dev -- --host -> chay server phat trien (co the truy cap
+                            tu may khac trong cung mang LAN)
+
+
+CAC CONG CU RIENG (offline, tach rieng khoi app geojson.io)
+=============================================================
+Tu 2026-08-02, cac cong cu HTML doc lap nay chuyen sang thu muc
+rieng, KHONG con nam trong geojson.io-main nua:
+
+  c:\Users\ygost\map\lam_viec\
+
+Day la thu muc lam viec chinh cho cac tool ban do tu lam - xem
+c:\Users\ygost\map\CLAUDE.md de biet dinh huong day du.
+
+
+CONG CU TIM DUONG NGAN NHAT
+-----------------------------
+File: c:\Users\ygost\map\lam_viec\shortest-path-tool.html
+
+- Day la 1 trang HTML doc lap, KHONG can npm/server, mo truc tiep
+  bang trinh duyet (double-click file hoac keo vao Chrome/Edge).
+  Khong can Internet vi khong dung ban do nen Mapbox.
+
+Cach dung:
+1. Trong geojson.io, ve/import mang luoi duong (cac feature dang
+   Duong - LineString), roi Export ra file GeoJSON.
+2. Mo file shortest-path-tool.html, keo tha (hoac chon) file
+   GeoJSON vua export vao. (Co the bam "Dung mang luoi mau" de
+   thu truoc.)
+3. Bam nut "Diem bat dau" / "Diem ket thuc" roi click len ban do,
+   hoac click thang 2 lan (lan 1 = bat dau, lan 2 = ket thuc).
+4. Cong cu tu dong chay thuat toan Dijkstra tren mang luoi duong,
+   hien thi khoang cach va to duong ngan nhat mau xanh.
+5. Bam "Tai GeoJSON ket qua" de tai file duong-ngan-nhat.geojson
+   (co the keo lai vao geojson.io de xem chung voi du lieu goc).
+
+Luu y: chi cac feature LineString/MultiLineString moi duoc dung
+lam mang luoi; Point/Polygon se bi bo qua.
+
+
+CONG CU BAN DO + DINH VI GPS
+-------------------------------
+File: c:\Users\ygost\map\lam_viec\dinh-vi-tool.html
+
+- Cung la 1 trang HTML doc lap, mo truc tiep bang trinh duyet.
+  Dung ban do nen OpenStreetMap (mien phi, KHONG can token Mapbox)
+  qua thu vien Leaflet tai tu CDN - nen VAN CAN INTERNET de hien
+  ban do nen (khac voi shortest-path-tool.html o tren).
+- Can mo qua HTTPS hoac localhost thi trinh duyet moi cho phep xin
+  quyen vi tri (GPS). Neu double-click mo file truc tiep (file://)
+  co the bi tu choi quyen - xem canh bao mau vang ngay trong trang.
+
+Cach dung:
+1. Bam "Bat dinh vi" - trinh duyet xin quyen truy cap vi tri, sau
+   do ban do tu dong cham vi tri va cap nhat khi ban di chuyen.
+2. Dia chi (ten duong/phuong/quan...) tu dong hien duoi toa do,
+   lay tu Nominatim (dich vu tra cuu dia chi mien phi cua OSM).
+3. Muc "3. Tim dia diem gan day": chon loai dia diem (ATM, benh
+   vien, nha thuoc, tram xang...) + ban kinh, bam "Tim quanh vi tri
+   hien tai" de hien cac diem gan do tren ban do (dung Overpass API
+   - du lieu OpenStreetMap, mien phi, khong can dang ky).
+4. Bam "Tai GeoJSON vi tri hien tai" de tai vi tri (dang Point)
+   ve may, co the keo vao geojson.io de xem chung du lieu khac.
+
+Luu y: da tim hieu dich vu VietBanDo (maps.vietbando.com) de thay
+the OpenStreetMap nhung KHONG dung vi do la dich vu thuong mai, can
+dang ky API key rieng va chi mien phi neu ung dung khong thu phi
+nguoi dung - trai voi tinh than "doc lap, khong can dang ky" cua
+cac tool trong lam_viec/. Neu sau nay muon du lieu VN chi tiet hon,
+uu tien tim/dung them nguon mo khac (xem CLAUDE.md muc "Ung dung
+dang xay").
+
+
+CONG CU THEO DOI VI TRI NHIEU THIET BI (phat / thu, hang tram may)
+=====================================================================
+File:
+  c:\Users\ygost\map\lam_viec\phat-vi-tri-tool.html   (may "phat")
+  c:\Users\ygost\map\lam_viec\thu-vi-tri-tool.html     (dashboard "thu")
+  c:\Users\ygost\map\lam_viec\vi-tri-server\server.js  (server relay)
+
+Khac 2 tool tren, bo 3 file nay KHONG the chay hoan toan doc lap tung
+file mot - can 1 server nho (vi-tri-server) lam trung gian de hang
+tram thiet bi "phat" gui vi tri toi 1 hoac nhieu trang "thu" dang
+xem. Server chi la relay theo "ma phong" (room code), KHONG luu gi
+xuong dia, KHONG can dang ky tai khoan/API key hang thu ba.
+
+BUOC 0: TAO API_SECRET (bat buoc tu 2026-08-07)
+----------------------------------------------------
+Server can 1 secret dai, ngau nhien de ky/xac minh vi tri gui qua HTTP API
+(/api/pos) va tinh "view key" cho tung phong xem (xem BUOC 2). Tao 1 lan,
+dung lai moi khi chay server:
+
+  PowerShell:
+    -join ((1..48) | ForEach-Object { '{0:x2}' -f (Get-Random -Max 256) })
+
+Dan gia tri in ra vao bien moi truong truoc khi chay server (xem BUOC 1),
+VA vao macro API_SECRET trong secrets.h cua tung thiet bi gui qua HTTP API
+(vd GpsPosSender/secrets.h cho ESP32) - PHAI KHOP CHINH XAC 2 ben. Khong
+commit gia tri that vao git o ca 2 noi.
+
+BUOC 1: CHAY SERVER
+----------------------
+1. Mo terminal:
+     cd "c:\Users\ygost\map\lam_viec\vi-tri-server"
+     npm install        (chi lam 1 lan dau, cai thu vien "ws")
+     $env:API_SECRET = "<gia-tri-da-tao-o-BUOC-0>"   (PowerShell)
+     npm start           (hoac: node server.js)
+   Server se BAO LOI VA THOAT ngay neu thieu API_SECRET - day la chu y,
+   khong phai bug (tranh vo tinh chay o che do khong xac thuc).
+2. Server mac dinh chay cong 8877 (doi bang bien moi truong PORT).
+   Terminal se in ra:
+     - Link dashboard:  http://localhost:8877/thu
+     - Link phat:       http://localhost:8877/phat
+     - Cac dia chi IP LAN de may khac cung WiFi mo truc tiep
+
+LUU Y - NEU GAP TRANG LOI "Access Error: 404 -- Not Found" (KHONG PHAI
+LOI TU SERVER NAY - server nay chi tra chu "Khong tim thay trang."):
+   Nghia la cong dang chon (8877 hoac PORT ban tu dat) da bi 1 phan
+   mem KHAC tren may chiem mat, thuong la phan mem diet virus/bao ve
+   co san tren Windows co component tu chay 1 web server noi bo. Cach
+   kiem tra: mo PowerShell, chay
+     Get-NetTCPConnection -LocalPort <SO_CONG> -State Listen | Select LocalAddress, OwningProcess
+   roi doi PORT sang 1 con so khac (vd PORT=8971 node server.js) - an
+   toan hon la tat/go phan mem la, vi khong biet no co dang lam viec
+   bao ve gi khac hay khong.
+
+LUU Y QUAN TRONG - GPS CAN HTTPS:
+   Trinh duyet CHI cho phep xin quyen vi tri khi trang mo qua
+   HTTPS, hoac qua "localhost" tren chinh may do. Dieu nay nghia la:
+   - Test tren 1 may (ca "phat" va "thu" cung may): dung
+     http://localhost:8877/... la du.
+   - Nhieu thiet bi trong CUNG 1 mang WiFi/LAN (vd 1 su kien, van
+     phong): dung dia chi IP LAN server in ra CHỈ hoat dong neu
+     trinh duyet coi do la "secure context" - Chrome/Edge tren may
+     tinh thuong CHO PHEP voi IP rieng tu (192.168.x.x, 10.x.x.x)
+     nhung dien thoai (Android Chrome/iOS Safari) THUONG SE CHAN xin
+     quyen vi tri qua http:// ke ca trong LAN. Neu gap loi nay, phai
+     dung phuong an ben duoi.
+   - Nhieu thiet bi tren MANG DATA DI DONG khac nhau (thuc te "hang
+     tram thiet bi" hau het roi vao truong hop nay): BAT BUOC can
+     server co HTTPS/WSS that su. Cach nhanh nhat khong can mua ten
+     mien/chung chi rieng: dung 1 tunnel mien phi tro toi may dang
+     chay server.js, vi du "cloudflared tunnel --url http://localhost:8877"
+     (Cloudflare Tunnel) hoac ngrok - cong cu se cap 1 link
+     https://... cong khai tro thang ve server local. Ve lau dai
+     (dung that, on dinh), nen deploy server.js len 1 VPS/host rieng
+     co ten mien + chung chi TLS that (vd qua Caddy/nginx dat truoc).
+
+BUOC 2: NGUOI TO CHUC MO TRANG "THU" (dashboard)
+----------------------------------------------------
+1. Mo http://<dia-chi-server>/thu
+2. Bam nut hinh xuc xac canh o "Ma phong" de tao 1 ma ngau nhien
+   (hoac tu dat ma rieng).
+3. Dien o "View key": tren may dang chay server, chay
+     cd "c:\Users\ygost\map\lam_viec\vi-tri-server"
+     $env:API_SECRET = "<gia-tri-giong-luc-chay-server>"
+     node compute-view-key.js <MA_PHONG_VUA_TAO>
+   dan gia tri in ra vao o "View key" (hoac gan thang vao link o buoc
+   4 bang tham so &vk=). Ai co ca ma phong LAN view key moi xem duoc
+   dashboard - chi co ma phong (vd doan duoc tu link gui cho nguoi
+   phat) la khong du.
+4. Bam "Ket noi".
+5. Bam "Sao chep link cho thiet bi phat" - link nay da gom san ma
+   phong + dia chi server (KHONG gom view key - dung y, nguoi phat vi
+   tri khong can biet view key), gui link do (Zalo, SMS, email...) cho
+   tung nguoi dung thiet bi "phat". Voi nguoi CHI xem (khong tu phat),
+   tu ghep link dang http://<server>/thu?room=<ma_phong>&vk=<view_key>.
+6. Ban do se tu dong hien marker khi tung thiet bi bat dau phat, co
+   gom nhom (cluster) khi nhieu diem gan nhau, danh sach ben trai co
+   tim kiem theo ten + trang thai truc tuyen/mat tin hieu.
+7. Bam vao 1 thiet bi trong danh sach de phong to toi vi tri do va
+   xem duong di gan nhat (toi da 40 diem gan nhat).
+8. Bam "Tai GeoJSON" de xuat vi tri hien tai CUA TAT CA thiet bi dang
+   thay (co the keo vao geojson.io de xem chung du lieu khac).
+
+BUOC 3: TUNG NGUOI MO TRANG "PHAT" (thiet bi ca nhan)
+----------------------------------------------------------
+1. Bam vao link duoc gui (da dien san ma phong + dia chi server),
+   hoac tu mo http://<dia-chi-server>/phat roi nhap ma phong.
+2. Dat "Ten thiet bi" (de nguoi xem "thu" nhan ra minh la ai/xe nao).
+3. Bam "Bat dau phat" - trinh duyet xin quyen vi tri, sau do tu dong
+   gui vi tri len phong theo chu ky da chon (mac dinh 5 giay/lan,
+   chon duoc 3/5/10/30 giay o muc "Nang cao").
+4. Trang se co gang giu man hinh khong tu khoa (Wake Lock) trong luc
+   phat, va TU DONG KET NOI LAI neu mat mang giua chung.
+5. Bam "Dung phat" khi xong viec.
+
+THIET BI KHONG CO TRINH DUYET (dong ho, mach vi dieu khien...)
+--------------------------------------------------------------------
+phat-vi-tri-tool.html chi la MOT cach de gui vi tri - danh cho bat ky
+thiet bi nao mo duoc trang web (dien thoai, may tinh bang, dong ho
+thong minh co trinh duyet nhu WearOS/Chrome...). Nhung khong phai
+thiet bi phat nao cung co trinh duyet: mach vi dieu khien nho (ESP32,
+ESP8266 gan module GPS NEO-6M...), bo dinh vi GPS/GPRS re tien
+(SIM800L, A9G...), hay 1 script chay tren may tinh nhung deu KHONG
+chay duoc trang HTML/JS.
+
+Vi vay server co them 1 API HTTP THUAN (khong can WebSocket, khong
+can trinh duyet, khong can giu ket noi lien tuc) de nhung thiet bi
+nay ban 1 request moi khi co toa do moi:
+
+  GET  http://<dia-chi-server>/api/pos?room=MA_PHONG&deviceId=ID_RIENG&name=Ten&lat=..&lon=..&ts=..&sig=..&accuracy=..&speed=..&heading=..
+  POST http://<dia-chi-server>/api/pos     (Content-Type: application/json)
+       { "room": "MA_PHONG", "deviceId": "ID_RIENG", "name": "Ten",
+         "lat": 21.03, "lon": 105.85, "ts": 1234567890, "sig": "...",
+         "accuracy": 10, "speed": 0, "heading": 0 }
+
+  Bat buoc: room, deviceId, lat, lon (lat/lon phai la so), ts, sig.
+  Tuy chon: name (mac dinh "Thiet bi <6 ky tu dau cua deviceId>"),
+  accuracy (met), speed (m/s), heading (do, 0-360).
+
+  (2026-08-07) ts + sig BAT BUOC - xem muc "XAC THUC HMAC" ngay duoi
+  day. Thieu hoac sai 1 trong 2 -> 401 {"ok":false,"error":"..."}.
+
+  Tra ve JSON: {"ok":true} khi thanh cong, {"ok":true,"throttled":true}
+  neu gui qua nhanh (bi bo qua, xem muc rate-limit ben duoi) - van la
+  200, khong can code xu ly loi phuc tap. Loi du lieu (thieu
+  room/deviceId, lat/lon khong hop le...) tra ve 400 kem {"ok":false,
+  "error":"..."}. Loi chu ky/het han tra ve 401.
+
+  deviceId nen dat CO DINH cho tung thiet bi vat ly (vd ghi san trong
+  code nap vao mach) de "thu" nhan ra day la cung 1 thiet bi qua cac
+  lan gui.
+
+XAC THUC HMAC (bat buoc tu 2026-08-07):
+   ts = so giay Unix hien tai (thiet bi phai co gio dung - dong bo qua
+        NTP, xem syncTime() trong GpsPosSender.ino - hoac RTC that).
+   sig = HMAC-SHA256 hex, key la API_SECRET (xem BUOC 0), thong diep ky
+         la chuoi ghep dung thu tu sau, noi bang ky tu "|":
+           room + "|" + deviceId + "|" + ts + "|" + lat + "|" + lon
+         Dung DUNG chuoi da gui (khong format lai so) - vi du lat gui
+         "21.030000" thi phai ky dung chuoi "21.030000", khong phai so
+         21.03 da lam tron/parse lai, neu khong sig se sai.
+   Server tu choi neu |gio_server - ts| > 5 phut (MAX_CLOCK_SKEW_MS
+   trong server.js) - chan viec ghi lai 1 request cu roi gui lai
+   (replay attack).
+
+Vi du thu nhanh bang curl + node (thay <server> va <API_SECRET> bang
+gia tri that; script node tinh sig roi in ra URL day du de dan vao curl):
+
+  node -e "
+    const c=require('crypto'),room='ABC123',deviceId='esp32-01',
+    lat='21.030000',lon='105.850000',ts=Math.floor(Date.now()/1000);
+    const sig=c.createHmac('sha256',process.env.API_SECRET)
+      .update(room+'|'+deviceId+'|'+ts+'|'+lat+'|'+lon).digest('hex');
+    console.log('http://<server>/api/pos?room='+room+'&deviceId='+deviceId+
+      '&lat='+lat+'&lon='+lon+'&ts='+ts+'&sig='+sig);
+  "
+  # roi: curl "<url in ra o tren>"
+
+Vi du minh hoa day du (co ky HMAC + dong bo NTP) cho mach ESP32 + GPS:
+xem GpsPosSender/GpsPosSender.ino (da chay tren khung, chi can dien
+WIFI_SSID/WIFI_PASSWORD/API_SECRET trong secrets.h roi nap sketch).
+
+LUU Y RATE-LIMIT DUNG CHUNG: server chi nhan toi da ~1 vi tri/giay cho
+MOI deviceId, tinh chung ca duong WebSocket lan HTTP (gui ca 2 kieu
+cho cung 1 deviceId van bi tinh chung 1 gioi han). Gui qua nhanh se
+bi lang le bo qua (throttled:true), khong phai loi.
+
+
+LOP BAO MAT: HMAC (API) + VIEW KEY (xem) + MA PHONG (sender qua dien
+thoai):
+   - Duong /api/pos (thiet bi khong trinh duyet): bao ve boi chu ky
+     HMAC + API_SECRET (xem tren) - biet ma phong khong con du de gia
+     mao vi tri qua duong nay.
+   - Xem /thu: bao ve boi "view key" rieng (xem BUOC 2) - biet ma
+     phong khong con du de xem, phai co ca view key.
+   - Duong WebSocket cho sender (dien thoai/tablet qua phat-vi-tri-
+     tool.html): VAN CHI can biet ma phong, khong doi - gui vi tri gia
+     qua duong nay van kha thi neu biet ma phong. Day la danh doi don
+     gian co chu dich (xem lam_viec/CLAUDE.md, ghi chu 2026-08-07) -
+     neu can khoa ca duong nay, phai mo rong xac thuc sang WS sender.
+   - Dat ma phong du dai/kho doan (nut tao ma ngau nhien da lam dieu
+     nay), va doi ma phong + API_SECRET cho moi lan su dung/su kien
+     khac nhau neu can co lap hoan toan giua cac nhom.
+
+BAN DO OFFLINE (khong can internet de xem nen ban do) - tu 2026-08-07
+----------------------------------------------------------------------
+Truoc day thu-vi-tri-tool.html tai tile ban do (nen OpenStreetMap) va
+ca thu vien Leaflet/markercluster truc tiep tu internet (tile.openstreet
+map.org + unpkg.com) moi lan mo trang. Gio ca 2 thu do da duoc tai san
+ve may va phuc vu tu chinh server nay, nen /thu mo duoc va xem duoc
+ban do KHONG CAN INTERNET (chi can may chay server.js).
+
+File lien quan:
+  lam_viec/vendor/                       Leaflet, markercluster,
+                                          protomaps-leaflet (tai 1 lan
+                                          tu unpkg.com/npm, KHONG con
+                                          goi ra ngoai luc chay)
+  lam_viec/vi-tri-server/tiles/da-nang.pmtiles
+                                          du lieu ban do offline (dinh
+                                          dang vector .pmtiles), zoom 0-15.
+                                          (2026-09-10) Ten file giu nguyen
+                                          nhung vung phu song da mo rong tu
+                                          chi Da Nang sang ca Quang Binh-
+                                          Quang Tri-Hue-Da Nang-Quang Nam-
+                                          Quang Ngai-Kon Tum-Gia Lai (bbox
+                                          105.2,12.7,109.1,18.15) - xem
+                                          CLAUDE.md de biet chi tiet qua
+                                          trinh mo rong.
+  lam_viec/vi-tri-server/server.js       them route /vendor/* va
+                                          /tiles/* (co ho tro HTTP
+                                          Range - bat buoc de doc file
+                                          .pmtiles tung phan)
+
+GIOI HAN: file .pmtiles chi phu vung bbox neu tren. Thiet bi phat vi tri
+o ngoai vung nay (vd Ha Noi) VAN hien marker binh thuong tren ban do -
+chi la phan nen (duong xa, ten pho...) o khu vuc do se de trong.
+
+TAI LAI CHO VUNG KHAC (vd doi/them 1 tinh/thanh khac):
+  1. Tai cong cu pmtiles CLI (khong can tai khoan/API key):
+       https://github.com/protomaps/go-pmtiles/releases
+     (chon file .zip/.tar.gz dung he dieu hanh, giai nen lay pmtiles.exe)
+  2. Tim ban build moi nhat cua ban do nen Protomaps (cap nhat hang
+     ngay) tai https://build-metadata.protomaps.dev/builds.json - lay
+     "key" cua phan tu CUOI CUNG trong mang JSON (vd "20260806.pmtiles"),
+     ghep thanh https://build.protomaps.com/<key>.
+  3. Chay (thay bbox = kinh_do_tay,vi_do_nam,kinh_do_dong,vi_do_bac cua
+     vung muon tai, vd lay tu https://boundingbox.klokantech.com):
+       pmtiles.exe extract https://build.protomaps.com/<key>.pmtiles OUTPUT.pmtiles --bbox=TAY,NAM,DONG,BAC --maxzoom=15
+     Lenh nay CHI tai dung phan du lieu trong bbox qua HTTP range
+     request (khong tai nguyen file ~137GB) - vung 1 tinh/thanh thuong
+     ra vai chuc MB. maxzoom cang cao, file cang nang (~gap doi moi
+     +1 zoom) nhung van phong to duoc qua muc do, chi la het chi tiet.
+  4. Chep OUTPUT.pmtiles vao lam_viec/vi-tri-server/tiles/, doi ten
+     file trong protomapsL.leafletLayer({url: '...'}) o
+     thu-vi-tri-tool.html cho khop.
+
+LUU Y: KHONG tai tile PNG hang loat truc tiep tu tile.openstreetmap.org
+(vd viet script goi {z}/{x}/{y}.png cho ca vung/nhieu muc zoom) - chinh
+sach su dung cua OSM cam "bulk downloading" kieu nay va se bi chan IP.
+Cach lam o tren (qua build.protomaps.com + pmtiles extract) la cach
+duoc chinh Protomaps thiet ke rieng cho muc dich tai 1 vung ve dung
+offline, hop le va khong ton phi.
+
+NHAN SMS TU DONG (khong can internet) - tu 2026-08-15
+=====================================================================
+Khac doc-toa-do-sms-tool.html (phai TU TAY dan tung SMS vao), bo nay tu
+dong doc SMS moi va cap nhat len ban do offline ngay - khong can dan tay,
+khong can internet (chi mang noi bo 127.0.0.1 tren chinh may dang chay).
+
+File lien quan (deu trong lam_viec/):
+  nhan-sms-tu-dong-server.js   server trung gian (KHONG can API_SECRET,
+                                chi 127.0.0.1) - phuc vu trang ban do +
+                                nhan du lieu tu 1 trong 2 script doc SMS
+                                ben duoi qua POST /push, trang web tu
+                                poll GET /latest moi 6 giay
+  nhan-sms-tu-dong-tool.html   trang ban do
+  doc-sms-qua-esp32-usb.js     CACH 1 - doc tu bo SmsReceiverUSB (xem
+                                duoi) cam USB
+  doc-sms-qua-dien-thoai-adb.js CACH 2 - doc SMS truc tiep tu dien thoai
+                                Android noi USB (khong can module SIM
+                                rieng)
+  SmsReceiverUSB/SmsReceiverUSB.ino  sketch ESP32 cho CACH 1 - ban KHONG
+                                WiFi cua SmsReceiver.ino, in toa do ra
+                                cong USB thay vi goi HTTP
+  thong-tin-thiet-bi-tool.html  trang dat ten thiet bi theo so dien thoai -
+                                mo qua nut "Thong tin thiet bi" o sidebar
+                                trang ban do (tu 2026-09-03, xem chi tiet o
+                                muc rieng "DAT TEN THIET BI CHO SO DIEN
+                                THOAI" ben duoi)
+
+CHUAN BI (1 lan duy nhat):
+  cd lam_viec, npm install (cai serialport de doc cong COM - can internet
+  LUC NAY, hoan toan KHONG can internet khi chay ve sau).
+
+CACH DUNG - bam 2 lan (hoac "Run") 1 trong 2 file .bat sau, MOI file tu lam
+HET moi buoc (khoi dong server + mo trinh duyet + chay script doc SMS),
+khong can tu go lenh node nao ca:
+
+  CACH 1 - nhan-sms-tu-dong-esp32-usb.bat
+    Dung khi co bo SmsReceiverUSB (ESP32+A7680C) cam USB vao may tinh nay:
+    - Nap sketch SmsReceiverUSB/SmsReceiverUSB.ino vao ESP32 (wiring
+      A7680C giong het SmsReceiver.ino) - sketch nay KHONG can WiFi/
+      secrets.h, chi in "TOADO|deviceId|ten|lat|lon" ra cong USB.
+    - Cam ESP32 vao may tinh bang day USB (thay vi de o noi co WiFi nhu
+      SmsReceiver.ino goc).
+    - Bam file .bat, no se hoi cong COM (vd COM5) - khong biet thi de
+      trong roi Enter, no se in danh sach cong dang co de ban chon, roi
+      chay lai file .bat va go dung ten cong do.
+
+  CACH 2 - nhan-sms-tu-dong-dien-thoai-adb.bat
+    Dung khi muon doc SMS truc tiep tu dien thoai Android (khong can
+    module SIM rieng) - CHUAN BI TRUOC 1 LAN:
+    - So dien thoai chinh la PHONE_NUMBER ma GpsSmsSender.ino gui toi.
+    - Cai "Android Platform Tools" (co adb.exe), them vao PATH.
+    - Tren dien thoai: bat "Tuy chon nha phat trien" (bam lien tiep "So
+      build" trong Cai dat > Gioi thieu 7 lan) > bat "Go loi USB". Cam
+      day USB, bam "Cho phep" khi dien thoai hoi.
+    Roi bam file .bat - tu chay het, khong can go gi them.
+    CHUA KIEM CHUNG TREN THIET BI THAT (khong co san dien thoai/adb luc
+    viet) - quyen doc content://sms/inbox qua "adb shell" khong can root
+    NHUNG khong dam bao 100% tren moi may/ban Android (mot so ROM/Android
+    moi co the chan). Neu loi "Permission denial" hoac khong thay tin
+    nhan moi du dien thoai co, day la gioi han cua may/ROM do - dung
+    Cach 1 (ESP32 NHAN) thay the.
+
+  Ca 2 file .bat deu tu mo 1 cua so server rieng ("Nhan SMS - Server ban
+  do") - CUA SO DO PHAI GIU MO trong luc cho nhan SMS, dong no la tat
+  toan bo (dong cua so cua script doc SMS thi chi tat rieng duong doc do
+  thoi, server + trang ban do van con). Dung ca 2 file .bat cung duoc neu
+  co du 2 loai phan cung (vd 1 xe dung Cach 1, xe khac dung Cach 2) - ca
+  2 deu day vao CUNG 1 server/trang.
+
+  Neu muon tu chay tung buoc thay vi dung file .bat (vd de xem log ro
+  hon): node nhan-sms-tu-dong-server.js, roi node doc-sms-qua-esp32-usb.js
+  COM_x hoac node doc-sms-qua-dien-thoai-adb.js o 1 cua so khac.
+
+DAT TEN THIET BI CHO SO DIEN THOAI (thay vi hien so tho tren ban do) -
+tu 2026-09-03
+=====================================================================
+Tren trang ban do co nut "Thong tin thiet bi" - bam vao mo 1 tab moi la
+trang danh ba so dien thoai/ten thiet bi (thong-tin-thiet-bi-tool.html). Dien so dien thoai + ten muon hien (vd "Xe
+may 1"), du lieu tu luu va ban do se tu doi ten trong lan cap nhat vi tri
+tiep theo - khong can sua code KNOWN_SENDERS/nap lai firmware nhu truoc.
+Co the dien tay tung dong hoac bam "Nhap tu Excel (.xlsx)" de nhap hang
+loat (cot 1 la so dien thoai, cot 2 la ten). Trang nay CHI dong bo len ban
+do khi mo dung qua nut o tren (tuc la qua chinh server dang chay o
+127.0.0.1:8899) - neu bam thang chay-thong-tin-thiet-bi-tool.bat (mo truc
+tiep bang file) thi van dung duoc de xem/sua nhung chi luu rieng trong
+trinh duyet do (pill "Chi luu tren may nay"), KHONG len ban do. Du lieu
+danh ba nay duoc server GHI XUONG DIA (lam_viec/device-directory.json) -
+KHAC voi lich su vi tri o duoi (chi giu trong RAM), vi day la cau hinh nen
+song sot duoc qua lan khoi dong lai server.
+
+GIOI HAN CAN BIET (them, rieng cho tinh nang nay):
+   - nhan-sms-tu-dong-server.js chi giu LICH SU VI TRI trong RAM (giong
+     vi-tri-server) - tat server la mat het, phai cho SMS gui lai. Rieng
+     danh ba ten thiet bi (o tren) co ghi xuong dia nen KHONG mat.
+   - Dinh dang dong "TOADO|..." (Cach 1) va cach parse "adb shell content
+     query" (Cach 2) da duoc kiem tra bang du lieu gia lap, nhung PHAN
+     CUNG THAT (cong COM that, dien thoai that) chua duoc kiem chung day
+     du - neu gap loi, xem thong bao script in ra (deu co huong dan kem
+     theo) truoc khi bao day la bug.
+
+GIOI HAN CAN BIET:
+   - Server khong luu lich su xuong dia - tat/khoi dong lai server
+     la mat het vi tri dang co (chi con neu ai do da bam "Tai
+     GeoJSON" truoc do).
+   - Trinh duyet dung dinh vi + het pin/tat man hinh van co the tam
+     dung GPS du da co Wake Lock (tuy he dieu hanh/trinh duyet).
+   - Thiet ke cho quy mo "hang tram" thiet bi tren 1 server Node don
+     le la thoai mai (tai rat nho: vai chuc ban tin/giay). Neu can
+     quy mo lon hon nhieu (hang chuc nghin+), se can kien truc khac
+     (nhieu server + pub/sub) - ngoai pham vi tool nay.

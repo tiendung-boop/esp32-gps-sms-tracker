@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Phat vi tri (beacon)</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f8;
+    --panel-bg: #ffffff;
+    --card-bg: #fcfcfd;
+    --border: #dfe0e6;
+    --text: #1a1a1f;
+    --muted: #6b6b76;
+    --accent: #2563eb;
+    --accent-2: #16a34a;
+    --danger: #dc2626;
+    --shadow: 0 1px 2px rgba(15, 15, 20, .05);
+    --warn-bg: #fef3c7;
+    --warn-text: #92400e;
+    --warn-border: #f59e0b;
+    --console-bg: #17181d;
+    --console-text: #d7d9e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181c;
+      --panel-bg: #1f2025;
+      --card-bg: #232429;
+      --border: #34353c;
+      --text: #ececf0;
+      --muted: #9a9aa5;
+      --shadow: none;
+      --warn-bg: rgba(245, 158, 11, .12);
+      --warn-text: #fbbf24;
+      --warn-border: rgba(245, 158, 11, .4);
+      --console-bg: #101114;
+      --console-text: #c9cbd3;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  #app { display: flex; height: 100vh; flex-direction: row; }
+  #panel {
+    width: 380px;
+    min-width: 320px;
+    background: var(--panel-bg);
+    border-right: 1px solid var(--border);
+    padding: 18px;
+    overflow-y: auto;
+  }
+
+  /* Man hinh nho (dong ho thong minh, dien thoai xoay doc hep...): xep panel
+     va ban do theo chieu doc thay vi canh nhau, panel co gioi han chieu cao
+     va tu cuon rieng de luon thay duoc nut "Bat dau phat". */
+  @media (max-width: 480px) {
+    #app { flex-direction: column; }
+    #panel { width: 100%; min-width: 0; max-height: 62vh; border-right: none; border-bottom: 1px solid var(--border); padding: 12px; }
+    main { min-height: 38vh; }
+    .coord-meta { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 340px) {
+    .coord-meta { grid-template-columns: 1fr; }
+  }
+
+  #brandHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  #brandMark {
+    width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px;
+    background: var(--accent-2); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #brandHeader h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  #brandHeader p.sub { color: var(--muted); font-size: 11.5px; margin: 2px 0 0; }
+
+  #warnBox {
+    display: none;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--warn-bg);
+    color: var(--warn-text);
+    border: 1px solid var(--warn-border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  #warnBox svg { flex-shrink: 0; margin-top: 1px; }
+  #warnBox strong { display: block; margin-bottom: 2px; font-size: 12px; }
+  #warnBox p { margin: 0; }
+
+  section {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+  section:last-child { margin-bottom: 0; }
+  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .card-head > svg { color: var(--accent-2); flex-shrink: 0; }
+  .card-head h2 { flex: 1; margin: 0; font-size: 13px; font-weight: 700; color: var(--text); }
+  section p.note { color: var(--muted); font-size: 11.5px; margin: 8px 0 0; line-height: 1.5; }
+
+  label.field { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 10px; }
+  label.field span { display: block; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; font-size: 10px; }
+  input[type=text], select {
+    width: 100%; font: inherit; font-size: 13px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px;
+  }
+  details.adv { margin-bottom: 10px; }
+  details.adv > summary { cursor: pointer; font-size: 11.5px; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+  details.adv[open] > summary { margin-bottom: 10px; }
+
+  .pill-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+    padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.waiting { color: #b45309; background: rgba(245, 158, 11, .12); border-color: rgba(245, 158, 11, .35); }
+  .pill.waiting .dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+  .pill.active { color: var(--accent-2); background: rgba(22, 163, 74, .12); border-color: rgba(22, 163, 74, .35); }
+  .pill.active .dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+  .pill.error { color: var(--danger); background: rgba(220, 38, 38, .12); border-color: rgba(220, 38, 38, .35); }
+  @media (prefers-color-scheme: dark) {
+    .pill.waiting { color: #fbbf24; }
+    .pill.active { color: #4ade80; }
+    .pill.error { color: #f87171; }
+  }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+  .row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .row > * { flex: 1; }
+  button {
+    font: inherit;
+    font-weight: 500;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 12px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--panel-bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: background .12s ease, border-color .12s ease, color .12s ease, opacity .12s ease;
+  }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.start { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
+  button.end { background: var(--danger); border-color: var(--danger); color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .icon { width: 18px; height: 18px; }
+  .icon-sm { width: 14px; height: 14px; flex-shrink: 0; }
+
+  .coord-box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .coord-main {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 16px; font-weight: 600; color: var(--text); letter-spacing: .2px;
+  }
+  .coord-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .coord-meta div { display: flex; flex-direction: column; gap: 2px; }
+  .coord-meta span { color: var(--muted); text-transform: uppercase; letter-spacing: .03em; font-size: 9.5px; }
+  .coord-meta b { color: var(--text); font-weight: 600; font-size: 12px; }
+
+  #log {
+    background: var(--console-bg);
+    color: var(--console-text);
+    border-radius: 8px;
+    padding: 10px 11px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  main { flex: 1; position: relative; }
+  #map { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <header id="brandHeader">
+      <div id="brandMark">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 11a9 9 0 0 1 9-9"></path><path d="M4 4l0 7l7 0"></path>
+          <circle cx="12" cy="12" r="2.5"></circle>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+        </svg>
+      </div>
+      <div>
+        <h1>Phat vi tri</h1>
+        <p class="sub">Gui vi tri realtime len 1 phong dung chung</p>
+      </div>
+    </header>
+
+    <div id="warnBox">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+      <div>
+        <strong>Chua o ket noi an toan</strong>
+        <p>Trang chua duoc mo qua HTTPS/localhost nen trinh duyet co the tu choi cap quyen vi tri.
+          Hay mo trang qua dia chi http://&lt;server&gt;/phat do vi-tri-server cung cap (ly tuong la qua HTTPS that su), thay vi mo truc tiep bang double-click file.</p>
+      </div>
+    </div>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>
+        </svg>
+        <h2>Phong &amp; thiet bi</h2>
+      </div>
+      <label class="field">
+        <span>Ten thiet bi (hien thi ben "thu")</span>
+        <input type="text" id="deviceName" placeholder="Vd: Xe 12, An - doi 3..." />
+      </label>
+      <label class="field">
+        <span>Ma phong</span>
+        <input type="text" id="roomCode" placeholder="Nhap ma phong duoc chia se" />
+      </label>
+      <details class="adv" id="advDetails">
+        <summary>Nang cao: dia chi server</summary>
+        <label class="field">
+          <span>Server WebSocket</span>
+          <input type="text" id="serverUrl" placeholder="wss://vi-du.com hoac ws://localhost:8877" />
+        </label>
+        <label class="field">
+          <span>Tan suat gui vi tri</span>
+          <select id="sendInterval">
+            <option value="3">Moi 3 giay</option>
+            <option value="5" selected>Moi 5 giay</option>
+            <option value="10">Moi 10 giay</option>
+            <option value="30">Moi 30 giay</option>
+          </select>
+        </label>
+      </details>
+      <div class="pill-row">
+        <span id="connPill" class="pill"><span class="dot"></span><span class="pill-label">Ngoai tuyen</span></span>
+        <span id="gpsPill" class="pill"><span class="dot"></span><span class="pill-label">Chua bat GPS</span></span>
+      </div>
+      <div class="row">
+        <button id="btnStart" class="start">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Bat dau phat
+        </button>
+        <button id="btnStop" class="end" disabled>
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect></svg>
+          Dung phat
+        </button>
+      </div>
+      <div id="status" class="note">Nhap ten thiet bi + ma phong roi bam "Bat dau phat".</div>
+    </section>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>
+        </svg>
+        <h2>Vi tri hien tai</h2>
+      </div>
+      <div class="coord-box">
+        <div id="coords">
+          <div class="coord-main">Chua co du lieu</div>
+        </div>
+      </div>
+      <button id="btnDownload" class="primary" disabled style="width:100%; margin-top:12px">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Tai GeoJSON vi tri hien tai
+      </button>
+    </section>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line>
+          <line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>
+        </svg>
+        <h2>Nhat Ky</h2>
+      </div>
+      <div id="log">San sang.</div>
+    </section>
+  </aside>
+  <main>
+    <div id="map"></div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---------- DOM ----------
+  var deviceNameInput = document.getElementById('deviceName');
+  var roomCodeInput = document.getElementById('roomCode');
+  var serverUrlInput = document.getElementById('serverUrl');
+  var sendIntervalSelect = document.getElementById('sendInterval');
+  var btnStart = document.getElementById('btnStart');
+  var btnStop = document.getElementById('btnStop');
+  var btnDownload = document.getElementById('btnDownload');
+  var statusEl = document.getElementById('status');
+  var coordsEl = document.getElementById('coords');
+  var logEl = document.getElementById('log');
+  var warnBox = document.getElementById('warnBox');
+  var connPillEl = document.getElementById('connPill');
+  var connPillLabel = connPillEl.querySelector('.pill-label');
+  var gpsPillEl = document.getElementById('gpsPill');
+  var gpsPillLabel = gpsPillEl.querySelector('.pill-label');
+  var advDetails = document.getElementById('advDetails');
+
+  function log(msg) {
+    var time = new Date().toLocaleTimeString();
+    logEl.textContent = '[' + time + '] ' + msg + '\n' + logEl.textContent;
+  }
+  function setConnPill(kind, text) { connPillEl.className = 'pill ' + kind; connPillLabel.textContent = text; }
+  function setGpsPill(kind, text) { gpsPillEl.className = 'pill ' + kind; gpsPillLabel.textContent = text; }
+
+  if (!window.isSecureContext) warnBox.style.display = 'flex';
+
+  // ---------- Cau hinh mac dinh (query params > localStorage > suy tu origin) ----------
+  var qs = new URLSearchParams(location.search);
+
+  function defaultServerUrl() {
+    if (location.protocol === 'http:' || location.protocol === 'https:') {
+      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+    }
+    return localStorage.getItem('vt_serverUrl') || 'ws://localhost:8877';
+  }
+
+  deviceNameInput.value = qs.get('name') || localStorage.getItem('vt_deviceName') || '';
+  roomCodeInput.value = qs.get('room') || localStorage.getItem('vt_roomCode') || '';
+  serverUrlInput.value = qs.get('server') || defaultServerUrl();
+  if (localStorage.getItem('vt_sendInterval')) sendIntervalSelect.value = localStorage.getItem('vt_sendInterval');
+  if (qs.get('server')) advDetails.open = true;
+
+  function getDeviceId() {
+    var id = localStorage.getItem('vt_deviceId');
+    if (!id) {
+      id = window.crypto && crypto.randomUUID ? crypto.randomUUID() : ('id-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+      localStorage.setItem('vt_deviceId', id);
+    }
+    return id;
+  }
+  var deviceId = getDeviceId();
+
+  // ---------- Ban do mini (chi de nguoi phat tu xac nhan vi tri minh) ----------
+  var map = L.map('map').setView([21.0285, 105.8542], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+  var posMarker = null, accCircle = null, firstFix = true;
+
+  // ---------- WebSocket: ket noi + tu dong reconnect ----------
+  var socket = null;
+  var manuallyStopped = true;
+  var reconnectAttempts = 0;
+  var reconnectTimer = null;
+
+  function scheduleReconnect() {
+    reconnectAttempts++;
+    var delay = Math.min(15000, 1000 * Math.pow(2, reconnectAttempts - 1)) + Math.random() * 500;
+    log('Mat ket noi, thu lai sau ' + Math.round(delay / 1000) + 's...');
+    reconnectTimer = setTimeout(function () { if (!manuallyStopped) connectSocket(); }, delay);
+  }
+
+  function connectSocket() {
+    var base = serverUrlInput.value.trim().replace(/\/+$/, '');
+    var url = base + '/ws';
+    setConnPill('waiting', 'Dang ket noi...');
+    try {
+      socket = new WebSocket(url);
+    } catch (e) {
+      setConnPill('error', 'Loi dia chi server');
+      log('Khong tao duoc WebSocket: ' + e.message);
+      scheduleReconnect();
+      return;
+    }
+    socket.onopen = function () {
+      reconnectAttempts = 0;
+      socket.send(JSON.stringify({ type: 'join', role: 'sender', room: roomCodeInput.value.trim(), deviceId: deviceId, name: deviceNameInput.value.trim() }));
+    };
+    socket.onmessage = function (ev) {
+      var msg;
+      try { msg = JSON.parse(ev.data); } catch (e) { return; }
+      if (msg.type === 'joined') {
+        setConnPill('active', 'Da ket noi');
+        statusEl.textContent = 'Dang phat vao phong "' + msg.room + '".';
+        log('Da vao phong "' + msg.room + '".');
+      } else if (msg.type === 'error') {
+        setConnPill('error', 'Loi');
+        log('Server bao loi: ' + msg.message);
+      }
+    };
+    socket.onclose = function () {
+      if (manuallyStopped) { setConnPill('idle', 'Ngoai tuyen'); return; }
+      setConnPill('waiting', 'Mat ket noi');
+      scheduleReconnect();
+    };
+    socket.onerror = function () { log('Loi WebSocket.'); };
+  }
+
+  function closeSocket() {
+    clearTimeout(reconnectTimer);
+    if (socket) {
+      try { socket.send(JSON.stringify({ type: 'bye' })); } catch (e) {}
+      socket.close();
+      socket = null;
+    }
+  }
+
+  // ---------- Wake Lock: giu man hinh sang trong luc phat ----------
+  var wakeLock = null;
+  var isBroadcasting = false;
+
+  function requestWakeLock() {
+    if (!('wakeLock' in navigator)) { log('Trinh duyet khong ho tro Wake Lock - man hinh co the tu khoa lam tam dung GPS.'); return; }
+    navigator.wakeLock.request('screen').then(function (lock) {
+      wakeLock = lock;
+      log('Da giu man hinh sang.');
+      lock.addEventListener('release', function () { wakeLock = null; });
+    }).catch(function (err) { log('Khong xin duoc Wake Lock: ' + err.message); });
+  }
+  function releaseWakeLock() {
+    if (wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (isBroadcasting && wakeLock === null && document.visibilityState === 'visible') requestWakeLock();
+  });
+
+  // ---------- Geolocation ----------
+  var watchId = null;
+  var lastPosition = null;
+  var lastSendAt = 0;
+
+  function errorMessage(err) {
+    switch (err.code) {
+      case err.PERMISSION_DENIED: return 'Bi tu choi quyen truy cap vi tri.';
+      case err.POSITION_UNAVAILABLE: return 'Khong xac dinh duoc vi tri (GPS/mang yeu).';
+      case err.TIMEOUT: return 'Het thoi gian cho vi tri, thu lai.';
+      default: return 'Loi khong xac dinh: ' + err.message;
+    }
+  }
+
+  function maybeSendPos(c, ts) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    var intervalMs = parseInt(sendIntervalSelect.value, 10) * 1000;
+    var now = Date.now();
+    if (now - lastSendAt < intervalMs) return;
+    lastSendAt = now;
+    socket.send(JSON.stringify({
+      type: 'pos',
+      lat: c.latitude, lon: c.longitude,
+      accuracy: c.accuracy != null ? c.accuracy : null,
+      speed: c.speed != null ? c.speed : null,
+      heading: c.heading != null ? c.heading : null,
+      ts: ts
+    }));
+    log('Da gui vi tri: ' + c.latitude.toFixed(6) + ', ' + c.longitude.toFixed(6));
+  }
+
+  function onPositionSuccess(pos) {
+    lastPosition = pos;
+    var c = pos.coords;
+    var latlng = [c.latitude, c.longitude];
+
+    if (!posMarker) {
+      posMarker = L.circleMarker(latlng, { radius: 7, color: '#16a34a', fillColor: '#16a34a', fillOpacity: 1, weight: 2 }).addTo(map);
+      accCircle = L.circle(latlng, { radius: c.accuracy || 0, color: '#16a34a', weight: 1, fillOpacity: 0.1 }).addTo(map);
+    } else {
+      posMarker.setLatLng(latlng);
+      accCircle.setLatLng(latlng);
+      accCircle.setRadius(c.accuracy || 0);
+    }
+    if (firstFix) { map.setView(latlng, 17); firstFix = false; } else { map.panTo(latlng); }
+
+    setGpsPill('active', 'GPS dang chay');
+    coordsEl.innerHTML =
+      '<div class="coord-main">' + c.latitude.toFixed(6) + ', ' + c.longitude.toFixed(6) + '</div>' +
+      '<div class="coord-meta">' +
+        '<div><span>Do chinh xac</span><b>&plusmn;' + Math.round(c.accuracy || 0) + ' m</b></div>' +
+        '<div><span>Toc do</span><b>' + (c.speed != null ? Math.round(c.speed * 3.6) + ' km/h' : '--') + '</b></div>' +
+        '<div><span>Cap nhat</span><b>' + new Date(pos.timestamp).toLocaleTimeString() + '</b></div>' +
+      '</div>';
+    btnDownload.disabled = false;
+
+    maybeSendPos(c, pos.timestamp);
+  }
+
+  function onPositionError(err) {
+    var msg = errorMessage(err);
+    setGpsPill('error', 'Loi GPS');
+    statusEl.textContent = 'Loi GPS: ' + msg;
+    log('Loi dinh vi: ' + msg);
+  }
+
+  // ---------- Bat / dung phat ----------
+  btnStart.addEventListener('click', function () {
+    var name = deviceNameInput.value.trim();
+    var room = roomCodeInput.value.trim();
+    if (!name) { statusEl.textContent = 'Vui long nhap ten thiet bi.'; deviceNameInput.focus(); return; }
+    if (!room) { statusEl.textContent = 'Vui long nhap ma phong.'; roomCodeInput.focus(); return; }
+    if (!('geolocation' in navigator)) { statusEl.textContent = 'Trinh duyet nay khong ho tro Geolocation API.'; return; }
+
+    localStorage.setItem('vt_deviceName', name);
+    localStorage.setItem('vt_roomCode', room);
+    localStorage.setItem('vt_serverUrl', serverUrlInput.value.trim());
+    localStorage.setItem('vt_sendInterval', sendIntervalSelect.value);
+
+    manuallyStopped = false;
+    isBroadcasting = true;
+    reconnectAttempts = 0;
+    connectSocket();
+    requestWakeLock();
+
+    firstFix = true;
+    watchId = navigator.geolocation.watchPosition(onPositionSuccess, onPositionError, {
+      enableHighAccuracy: true, maximumAge: 5000, timeout: 15000
+    });
+    setGpsPill('waiting', 'Dang cho GPS');
+    statusEl.textContent = 'Dang ket noi va cho GPS...';
+    log('Bat dau phat: thiet bi "' + name + '", phong "' + room + '".');
+
+    btnStart.disabled = true;
+    btnStop.disabled = false;
+    deviceNameInput.disabled = true;
+    roomCodeInput.disabled = true;
+    serverUrlInput.disabled = true;
+  });
+
+  btnStop.addEventListener('click', function () {
+    manuallyStopped = true;
+    isBroadcasting = false;
+    if (watchId != null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+    closeSocket();
+    releaseWakeLock();
+    setGpsPill('idle', 'Da dung');
+    setConnPill('idle', 'Ngoai tuyen');
+    statusEl.textContent = 'Da dung phat.';
+    log('Da dung phat.');
+
+    btnStart.disabled = false;
+    btnStop.disabled = true;
+    deviceNameInput.disabled = false;
+    roomCodeInput.disabled = false;
+    serverUrlInput.disabled = false;
+  });
+
+  btnDownload.addEventListener('click', function () {
+    if (!lastPosition) return;
+    var c = lastPosition.coords;
+    var geojson = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: {
+          device_id: deviceId,
+          device_name: deviceNameInput.value.trim(),
+          accuracy_m: c.accuracy || null,
+          speed_mps: c.speed != null ? c.speed : null,
+          heading_deg: c.heading != null ? c.heading : null,
+          timestamp: new Date(lastPosition.timestamp).toISOString()
+        },
+        geometry: { type: 'Point', coordinates: [c.longitude, c.latitude] }
+      }]
+    };
+    var blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/geo+json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'vi-tri-phat.geojson';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    log('Da tai GeoJSON vi tri hien tai.');
+  });
+})();
+</script>
+</body>
+</html>

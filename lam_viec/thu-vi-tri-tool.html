@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Thu vi tri (dashboard nhieu thiet bi)</title>
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+<link rel="stylesheet" href="/vendor/markercluster/MarkerCluster.css" />
+<link rel="stylesheet" href="/vendor/markercluster/MarkerCluster.Default.css" />
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f8;
+    --panel-bg: #ffffff;
+    --card-bg: #fcfcfd;
+    --border: #dfe0e6;
+    --text: #1a1a1f;
+    --muted: #6b6b76;
+    --accent: #2563eb;
+    --accent-2: #16a34a;
+    --danger: #dc2626;
+    --shadow: 0 1px 2px rgba(15, 15, 20, .05);
+    --warn-bg: #fef3c7;
+    --warn-text: #92400e;
+    --warn-border: #f59e0b;
+    --console-bg: #17181d;
+    --console-text: #d7d9e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181c;
+      --panel-bg: #1f2025;
+      --card-bg: #232429;
+      --border: #34353c;
+      --text: #ececf0;
+      --muted: #9a9aa5;
+      --shadow: none;
+      --warn-bg: rgba(245, 158, 11, .12);
+      --warn-text: #fbbf24;
+      --warn-border: rgba(245, 158, 11, .4);
+      --console-bg: #101114;
+      --console-text: #c9cbd3;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
+  #app { display: flex; height: 100vh; }
+  #panel { width: 380px; min-width: 320px; background: var(--panel-bg); border-right: 1px solid var(--border); padding: 18px; overflow-y: auto; display: flex; flex-direction: column; }
+
+  /* Man hinh hep (dien thoai xoay doc...): panel nam tren, ban do nam duoi
+     thay vi canh nhau, tranh sidebar 380px lam vo bo cuc. */
+  @media (max-width: 480px) {
+    #app { flex-direction: column; }
+    #panel { width: 100%; min-width: 0; max-height: 62vh; border-right: none; border-bottom: 1px solid var(--border); padding: 12px; }
+    main { min-height: 38vh; }
+  }
+
+  #brandHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  #brandMark { width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; }
+  #brandHeader h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  #brandHeader p.sub { color: var(--muted); font-size: 11.5px; margin: 2px 0 0; }
+
+  section { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  section:last-child { margin-bottom: 0; }
+  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .card-head > svg { color: var(--accent); flex-shrink: 0; }
+  .card-head h2 { flex: 1; margin: 0; font-size: 13px; font-weight: 700; color: var(--text); }
+  section p.note { color: var(--muted); font-size: 11.5px; margin: 8px 0 0; line-height: 1.5; }
+
+  label.field { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 10px; }
+  label.field span { display: block; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; font-size: 10px; }
+  input[type=text] { width: 100%; font: inherit; font-size: 13px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  details.adv { margin-bottom: 10px; }
+  details.adv > summary { cursor: pointer; font-size: 11.5px; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+  details.adv[open] > summary { margin-bottom: 10px; }
+
+  .pill-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; white-space: nowrap; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.waiting { color: #b45309; background: rgba(245, 158, 11, .12); border-color: rgba(245, 158, 11, .35); }
+  .pill.waiting .dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+  .pill.active { color: var(--accent-2); background: rgba(22, 163, 74, .12); border-color: rgba(22, 163, 74, .35); }
+  .pill.active .dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+  .pill.error { color: var(--danger); background: rgba(220, 38, 38, .12); border-color: rgba(220, 38, 38, .35); }
+  @media (prefers-color-scheme: dark) { .pill.waiting { color: #fbbf24; } .pill.active { color: #4ade80; } .pill.error { color: #f87171; } }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+  .row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .row > * { flex: 1; }
+  button { font: inherit; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border); background: var(--panel-bg); color: var(--text); cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease, opacity .12s ease; }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.start { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
+  button.end { background: var(--danger); border-color: var(--danger); color: #fff; }
+  button.ghost { background: transparent; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .icon { width: 18px; height: 18px; }
+  .icon-sm { width: 14px; height: 14px; flex-shrink: 0; }
+
+  #devicesSection { flex: 1; min-height: 220px; display: flex; flex-direction: column; }
+  .search-box { position: relative; margin-bottom: 10px; }
+  .search-box input { padding-left: 30px; }
+  .search-box svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  #devList { flex: 1; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+  .dev-row { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .dev-row:last-child { border-bottom: none; }
+  .dev-row:hover { background: var(--panel-bg); }
+  .dev-row.selected { background: rgba(37, 99, 235, .1); }
+  .dev-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px var(--bg); }
+  .dev-row.offline .dev-dot { opacity: .35; }
+  .dev-info { flex: 1; min-width: 0; }
+  .dev-name { font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dev-row.offline .dev-name { color: var(--muted); }
+  .dev-meta { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+  #devEmpty { padding: 18px 10px; text-align: center; color: var(--muted); font-size: 11.5px; line-height: 1.6; }
+
+  #log { background: var(--console-bg); color: var(--console-text); border-radius: 8px; padding: 10px 11px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 11px; line-height: 1.7; white-space: pre-wrap; max-height: 130px; overflow-y: auto; }
+
+  main { flex: 1; position: relative; }
+  #map { width: 100%; height: 100%; }
+
+  .device-marker { background: transparent; border: none; }
+  .device-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+  .device-dot.offline { opacity: .4; }
+  .marker-cluster-vt { background: transparent; }
+  .marker-cluster-vt div { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; box-shadow: 0 0 0 4px rgba(37,99,235,.25); }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <header id="brandHeader">
+      <div id="brandMark">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 11l18-7-7 18-2-8-9-3z"></path>
+        </svg>
+      </div>
+      <div>
+        <h1>Thu vi tri</h1>
+        <p class="sub">Dashboard theo doi nhieu thiet bi cung luc</p>
+      </div>
+    </header>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>
+        </svg>
+        <h2>Ket noi phong</h2>
+      </div>
+      <label class="field">
+        <span>Ma phong</span>
+        <div class="row" style="margin-bottom:0">
+          <input type="text" id="roomCode" placeholder="Vd: AB12CD" />
+          <button id="btnRandomRoom" class="ghost" title="Tao ma phong ngau nhien" style="flex:0 0 auto">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3-3.5 3.5zM19 5.5L18.5 6"></path></svg>
+          </button>
+        </div>
+      </label>
+      <label class="field">
+        <span>View key</span>
+        <input type="text" id="viewKey" placeholder="Xin nguoi quan tri server (node compute-view-key.js)" />
+      </label>
+      <details class="adv" id="advDetails">
+        <summary>Nang cao: dia chi server</summary>
+        <label class="field">
+          <span>Server WebSocket</span>
+          <input type="text" id="serverUrl" placeholder="wss://vi-du.com hoac ws://localhost:8877" />
+        </label>
+      </details>
+      <div class="pill-row">
+        <span id="connPill" class="pill"><span class="dot"></span><span class="pill-label">Ngoai tuyen</span></span>
+      </div>
+      <div class="row">
+        <button id="btnConnect" class="start">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Ket noi
+        </button>
+        <button id="btnDisconnect" class="end" disabled>
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect></svg>
+          Ngat
+        </button>
+      </div>
+      <button id="btnCopyLink" class="primary" style="width:100%">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+        Sao chep link cho thiet bi phat
+      </button>
+      <div id="status" class="note">Nhap/tao ma phong roi bam "Ket noi" de bat dau xem.</div>
+    </section>
+
+    <section id="devicesSection">
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        <h2>Thiet bi</h2>
+        <span id="countPill" class="pill">0 truc tuyen / 0</span>
+      </div>
+      <div class="search-box">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="searchInput" placeholder="Tim theo ten thiet bi..." />
+      </div>
+      <div id="devList"><div id="devEmpty">Chua co thiet bi nao gui vi tri.</div></div>
+      <div class="row" style="margin-top:10px">
+        <button id="btnExport" class="primary">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Tai GeoJSON
+        </button>
+        <button id="btnClear" class="ghost">Xoa danh sach</button>
+      </div>
+    </section>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line>
+          <line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>
+        </svg>
+        <h2>Nhat Ky</h2>
+      </div>
+      <div id="log">San sang.</div>
+    </section>
+  </aside>
+  <main>
+    <div id="map"></div>
+  </main>
+</div>
+
+<script src="/vendor/leaflet/leaflet.js"></script>
+<script src="/vendor/markercluster/leaflet.markercluster.js"></script>
+<script src="/vendor/protomaps-leaflet/protomaps-leaflet.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var STALE_MS = 45000;         // qua thoi gian nay khong co cap nhat -> coi la mat tin hieu
+  var PRUNE_MS = 20 * 60 * 1000; // qua thoi gian nay -> xoa han khoi danh sach (don bo nho)
+  var TRAIL_MAX = 40;            // so diem duong di gan nhat giu lai cho 1 thiet bi dang chon
+  var SWEEP_MS = 5000;
+
+  // ---------- DOM ----------
+  var roomCodeInput = document.getElementById('roomCode');
+  var viewKeyInput = document.getElementById('viewKey');
+  var btnRandomRoom = document.getElementById('btnRandomRoom');
+  var serverUrlInput = document.getElementById('serverUrl');
+  var advDetails = document.getElementById('advDetails');
+  var btnConnect = document.getElementById('btnConnect');
+  var btnDisconnect = document.getElementById('btnDisconnect');
+  var btnCopyLink = document.getElementById('btnCopyLink');
+  var connPillEl = document.getElementById('connPill');
+  var connPillLabel = connPillEl.querySelector('.pill-label');
+  var statusEl = document.getElementById('status');
+  var countPillEl = document.getElementById('countPill');
+  var searchInput = document.getElementById('searchInput');
+  var devListEl = document.getElementById('devList');
+  var devEmptyEl = document.getElementById('devEmpty');
+  var btnExport = document.getElementById('btnExport');
+  var btnClear = document.getElementById('btnClear');
+  var logEl = document.getElementById('log');
+
+  function log(msg) {
+    var time = new Date().toLocaleTimeString();
+    logEl.textContent = '[' + time + '] ' + msg + '\n' + logEl.textContent;
+  }
+  function setConnPill(kind, text) { connPillEl.className = 'pill ' + kind; connPillLabel.textContent = text; }
+
+  // ---------- Cau hinh mac dinh ----------
+  var qs = new URLSearchParams(location.search);
+  function defaultServerUrl() {
+    if (location.protocol === 'http:' || location.protocol === 'https:') {
+      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+    }
+    return localStorage.getItem('vt_serverUrl') || 'ws://localhost:8877';
+  }
+  roomCodeInput.value = qs.get('room') || localStorage.getItem('vt_roomCode') || '';
+  viewKeyInput.value = qs.get('vk') || localStorage.getItem('vt_viewKey') || '';
+  serverUrlInput.value = qs.get('server') || defaultServerUrl();
+  if (qs.get('server')) advDetails.open = true;
+
+  function randomRoomCode() {
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // bo O/0, I/1 cho de doc
+    var s = '';
+    for (var i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+  }
+  btnRandomRoom.addEventListener('click', function () { roomCodeInput.value = randomRoomCode(); });
+
+  function computeShareLink() {
+    var room = roomCodeInput.value.trim();
+    if (!room) return null;
+    var base;
+    if (location.protocol === 'http:' || location.protocol === 'https:') {
+      base = location.origin + '/phat';
+    } else {
+      base = location.href.replace(/thu-vi-tri-tool\.html.*$/, 'phat-vi-tri-tool.html');
+    }
+    var params = new URLSearchParams();
+    params.set('room', room);
+    params.set('server', serverUrlInput.value.trim());
+    return base + '?' + params.toString();
+  }
+
+  btnCopyLink.addEventListener('click', function () {
+    var link = computeShareLink();
+    if (!link) { statusEl.textContent = 'Vui long nhap ma phong truoc.'; roomCodeInput.focus(); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(function () {
+        log('Da sao chep link: ' + link);
+      }).catch(function () { window.prompt('Sao chep link ben duoi:', link); });
+    } else {
+      window.prompt('Sao chep link ben duoi:', link);
+    }
+  });
+
+  // ---------- Ban do + cluster ----------
+  // Dung tile offline (vector, file .pmtiles da tai truoc ve tiles/da-nang.pmtiles
+  // qua "pmtiles extract" tu build.protomaps.com - xem HUONG_DAN.txt) thay vi
+  // goi tile PNG truc tiep tu tile.openstreetmap.org, de dashboard xem duoc ban do
+  // ma khong can internet. Vung phu song hien chi la Da Nang (xem README trong
+  // thu muc tiles/) - thiet bi o ngoai vung nay van hien vi tri, chi la nen ban do
+  // se trong. Muon vung khac: chay lai pmtiles extract voi --bbox khac.
+  // maxZoom khai bao thang tren map (khong phai tren layer) - truoc day den
+  // tu options.maxZoom cua L.tileLayer OSM cu; layer pmtiles moi khong tu
+  // dang ky gia tri nay voi Leaflet, thieu no thi map.getMaxZoom() tra ve
+  // Infinity va leaflet.markercluster nem loi "Map has no maxZoom specified"
+  // ngay khi them clusterGroup. Du lieu vector chi toi zoom 15 nhung van
+  // phong sau hon duoc binh thuong (overzoom), nen giu 19 nhu truoc.
+  // maxBounds/maxBoundsViscosity gioi han han vung keo dung bang bbox da
+  // dung de cat du lieu (105.2,12.7,109.1,18.15 - xem CLAUDE.md), tranh keo
+  // ra vung trong khong co tile nao (sua 2026-09-11, giam tai khi thao tac
+  // ban do). LUU Y: thiet bi bao vi tri o NGOAI bbox nay van hien marker
+  // binh thuong (khong doi), nhung bam vao no trong danh sach thiet bi
+  // (goi map.setView) se KHONG con di chuyen dung den vi tri that cua no
+  // nua - Leaflet tu keo view ve lai trong pham vi maxBounds. Chap nhan
+  // duoc vi da so thiet bi thuc te nam trong bbox rat rong nay.
+  var DATA_BOUNDS = [[12.7, 105.2], [18.15, 109.1]];
+  var map = L.map('map', { maxZoom: 19, maxBounds: DATA_BOUNDS, maxBoundsViscosity: 1.0 }).setView([16.047, 108.220], 13);
+  protomapsL.leafletLayer({
+    url: '/tiles/da-nang.pmtiles',
+    flavor: 'light',
+    lang: 'vi',
+    // Khai bao RO maxDataZoom khop dung zoom that cua file .pmtiles (15) -
+    // truoc day dua vao mac dinh 15 cua thu vien (trung hop lien quan) nhung
+    // day la choi may rui: neu file duoc cat lai o zoom khac sau nay ma quen
+    // sua o day, se lap lai dung loi da gap o 2 tool nhung z12
+    // (doc-toa-do-sms-tool.html/nhan-sms-tu-dong-tool.html, sua 2026-09-11) -
+    // hien xam khi phong qua muc du lieu that vi thu vien co tai cac tile
+    // khong ton tai trong file thay vi phong to lai tile co san.
+    maxDataZoom: 15,
+    // Chi tai/ve tile MOI sau khi dung keo/zoom han - giam giat/lag voi tile
+    // vector, nhat la sau khi vung du lieu lon hon nhieu (2026-09-10). Xem
+    // giai thich day du trong nhan-sms-tu-dong-tool.html (2026-09-11).
+    updateWhenIdle: true,
+    updateWhenZooming: false,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://protomaps.com">Protomaps</a>'
+  }).addTo(map);
+
+  var clusterGroup = L.markerClusterGroup({
+    maxClusterRadius: 55,
+    spiderfyOnMaxZoom: true,
+    disableClusteringAtZoom: 17,
+    iconCreateFunction: function (cluster) {
+      return L.divIcon({ html: '<div>' + cluster.getChildCount() + '</div>', className: 'marker-cluster-vt', iconSize: [34, 34] });
+    }
+  });
+  map.addLayer(clusterGroup);
+  var trailLayer = L.layerGroup().addTo(map);
+  var hasFitOnce = false;
+
+  function colorForId(id) {
+    var hash = 0;
+    for (var i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+    var hue = hash % 360;
+    return 'hsl(' + hue + ', 70%, 45%)';
+  }
+
+  function deviceIcon(color, offline) {
+    return L.divIcon({
+      className: 'device-marker',
+      html: '<div class="device-dot' + (offline ? ' offline' : '') + '" style="background:' + color + '"></div>',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8]
+    });
+  }
+
+  function timeAgo(ts) {
+    var s = Math.round((Date.now() - ts) / 1000);
+    if (s < 5) return 'vua xong';
+    if (s < 60) return s + 's truoc';
+    var m = Math.round(s / 60);
+    if (m < 60) return m + 'p truoc';
+    return Math.round(m / 60) + 'g truoc';
+  }
+
+  function popupHtml(id, dev) {
+    return '<b>' + escapeHtml(dev.name) + '</b>';
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ---------- Trang thai thiet bi ----------
+  var devices = new Map();   // deviceId -> {name,lat,lon,accuracy,speed,heading,ts,marker,color,trail,offline}
+  var rows = new Map();      // deviceId -> {el, dot, nameEl, metaEl}
+  var selectedDeviceId = null;
+
+  function updateCounts() {
+    var online = 0;
+    devices.forEach(function (d) { if (!d.offline) online++; });
+    countPillEl.textContent = online + ' truc tuyen / ' + devices.size;
+    devEmptyEl.style.display = devices.size === 0 ? 'block' : 'none';
+  }
+
+  function drawTrail(id) {
+    trailLayer.clearLayers();
+    var dev = devices.get(id);
+    if (dev && dev.trail.length > 1) L.polyline(dev.trail, { color: dev.color, weight: 3, opacity: .85 }).addTo(trailLayer);
+  }
+
+  function selectDevice(id) {
+    var dev = devices.get(id);
+    if (!dev) return;
+    if (selectedDeviceId && rows.has(selectedDeviceId)) rows.get(selectedDeviceId).el.classList.remove('selected');
+    selectedDeviceId = id;
+    if (rows.has(id)) rows.get(id).el.classList.add('selected');
+    map.setView([dev.lat, dev.lon], Math.max(map.getZoom(), 16));
+    dev.marker.openPopup();
+    drawTrail(id);
+  }
+
+  function upsertRow(id) {
+    var dev = devices.get(id);
+    var r = rows.get(id);
+    if (!r) {
+      var el = document.createElement('div');
+      el.className = 'dev-row';
+      el.innerHTML = '<span class="dev-dot"></span><div class="dev-info"><div class="dev-name"></div><div class="dev-meta"></div></div>';
+      el.addEventListener('click', function () { selectDevice(id); });
+      devListEl.appendChild(el);
+      r = { el: el, dot: el.querySelector('.dev-dot'), nameEl: el.querySelector('.dev-name'), metaEl: el.querySelector('.dev-meta') };
+      rows.set(id, r);
+      applySearchFilter(r, dev.name);
+    }
+    r.dot.style.background = dev.color;
+    r.nameEl.textContent = dev.name;
+    r.metaEl.textContent = timeAgo(dev.ts) + (dev.speed != null ? ' · ' + Math.round(dev.speed * 3.6) + ' km/h' : '');
+    r.el.classList.toggle('offline', !!dev.offline);
+  }
+
+  function applySearchFilter(r, name) {
+    var q = searchInput.value.trim().toLowerCase();
+    r.el.style.display = (!q || name.toLowerCase().indexOf(q) >= 0) ? '' : 'none';
+  }
+  searchInput.addEventListener('input', function () {
+    rows.forEach(function (r, id) { var dev = devices.get(id); if (dev) applySearchFilter(r, dev.name); });
+  });
+
+  function upsertDevice(d) {
+    var existing = devices.get(d.deviceId);
+    var isNew = !existing;
+    var color = existing ? existing.color : colorForId(d.deviceId);
+    var trail = existing ? existing.trail : [];
+    trail.push([d.lat, d.lon]);
+    if (trail.length > TRAIL_MAX) trail.shift();
+
+    var marker;
+    if (existing) {
+      marker = existing.marker;
+      marker.setLatLng([d.lat, d.lon]);
+    } else {
+      marker = L.marker([d.lat, d.lon], { icon: deviceIcon(color, false) });
+      marker.on('click', function () { selectDevice(d.deviceId); });
+      clusterGroup.addLayer(marker);
+    }
+
+    var dev = { name: d.name, lat: d.lat, lon: d.lon, accuracy: d.accuracy, speed: d.speed, heading: d.heading, ts: d.ts || Date.now(), marker: marker, color: color, trail: trail, offline: false };
+    devices.set(d.deviceId, dev);
+    marker.setIcon(deviceIcon(color, false));
+    marker.bindPopup(popupHtml(d.deviceId, dev));
+
+    upsertRow(d.deviceId);
+    updateCounts();
+    if (selectedDeviceId === d.deviceId) drawTrail(d.deviceId);
+
+    if (isNew) {
+      log('Thiet bi moi: ' + d.name);
+      if (!hasFitOnce) { map.setView([d.lat, d.lon], 15); hasFitOnce = true; }
+    }
+  }
+
+  function markOffline(deviceId) {
+    var dev = devices.get(deviceId);
+    if (!dev || dev.offline) return;
+    dev.offline = true;
+    dev.marker.setIcon(deviceIcon(dev.color, true));
+    upsertRow(deviceId);
+    updateCounts();
+    log('Mat ket noi: ' + dev.name);
+  }
+
+  function removeDevice(id) {
+    var dev = devices.get(id);
+    if (!dev) return;
+    clusterGroup.removeLayer(dev.marker);
+    devices.delete(id);
+    var r = rows.get(id);
+    if (r) { r.el.remove(); rows.delete(id); }
+    if (selectedDeviceId === id) { selectedDeviceId = null; trailLayer.clearLayers(); }
+  }
+
+  function clearAllDevices() {
+    devices.forEach(function (dev) { clusterGroup.removeLayer(dev.marker); });
+    devices.clear();
+    rows.forEach(function (r) { r.el.remove(); });
+    rows.clear();
+    trailLayer.clearLayers();
+    selectedDeviceId = null;
+    updateCounts();
+    log('Da xoa danh sach hien thi (thiet bi se hien lai khi co cap nhat moi).');
+  }
+  btnClear.addEventListener('click', clearAllDevices);
+
+  setInterval(function () {
+    var now = Date.now();
+    devices.forEach(function (dev, id) {
+      var age = now - dev.ts;
+      if (age > PRUNE_MS) { removeDevice(id); return; }
+      var shouldOffline = age > STALE_MS;
+      if (shouldOffline !== dev.offline) {
+        dev.offline = shouldOffline;
+        dev.marker.setIcon(deviceIcon(dev.color, shouldOffline));
+      }
+      upsertRow(id);
+    });
+    updateCounts();
+  }, SWEEP_MS);
+
+  // ---------- Export GeoJSON ----------
+  btnExport.addEventListener('click', function () {
+    var features = [];
+    devices.forEach(function (dev, id) {
+      features.push({
+        type: 'Feature',
+        properties: {
+          device_id: id,
+          device_name: dev.name,
+          accuracy_m: dev.accuracy != null ? dev.accuracy : null,
+          speed_mps: dev.speed != null ? dev.speed : null,
+          heading_deg: dev.heading != null ? dev.heading : null,
+          status: dev.offline ? 'offline' : 'online',
+          timestamp: new Date(dev.ts).toISOString()
+        },
+        geometry: { type: 'Point', coordinates: [dev.lon, dev.lat] }
+      });
+    });
+    if (!features.length) { log('Chua co thiet bi nao de xuat.'); return; }
+    var geojson = { type: 'FeatureCollection', features: features };
+    var blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/geo+json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'vi-tri-tat-ca.geojson';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    log('Da tai GeoJSON (' + features.length + ' thiet bi).');
+  });
+
+  // ---------- WebSocket: ket noi (vai tro viewer) + tu dong reconnect ----------
+  var socket = null;
+  var manuallyStopped = true;
+  var reconnectAttempts = 0;
+  var reconnectTimer = null;
+
+  function getViewerId() {
+    var id = sessionStorage.getItem('vt_viewerId');
+    if (!id) {
+      id = window.crypto && crypto.randomUUID ? crypto.randomUUID() : ('viewer-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+      sessionStorage.setItem('vt_viewerId', id);
+    }
+    return id;
+  }
+  var viewerId = getViewerId();
+
+  function scheduleReconnect() {
+    reconnectAttempts++;
+    var delay = Math.min(15000, 1000 * Math.pow(2, reconnectAttempts - 1)) + Math.random() * 500;
+    log('Mat ket noi, thu lai sau ' + Math.round(delay / 1000) + 's...');
+    reconnectTimer = setTimeout(function () { if (!manuallyStopped) connectSocket(); }, delay);
+  }
+
+  function connectSocket() {
+    var base = serverUrlInput.value.trim().replace(/\/+$/, '');
+    var url = base + '/ws';
+    setConnPill('waiting', 'Dang ket noi...');
+    try {
+      socket = new WebSocket(url);
+    } catch (e) {
+      setConnPill('error', 'Loi dia chi server');
+      log('Khong tao duoc WebSocket: ' + e.message);
+      scheduleReconnect();
+      return;
+    }
+    socket.onopen = function () {
+      reconnectAttempts = 0;
+      socket.send(JSON.stringify({ type: 'join', role: 'viewer', room: roomCodeInput.value.trim(), viewKey: viewKeyInput.value.trim(), deviceId: viewerId, name: 'Dashboard' }));
+    };
+    socket.onmessage = function (ev) {
+      var msg;
+      try { msg = JSON.parse(ev.data); } catch (e) { return; }
+      if (msg.type === 'joined') {
+        setConnPill('active', 'Da ket noi');
+        statusEl.textContent = 'Dang xem phong "' + msg.room + '".';
+        log('Da vao phong "' + msg.room + '".');
+      } else if (msg.type === 'roster') {
+        msg.devices.forEach(function (d) { upsertDevice(d); });
+      } else if (msg.type === 'pos') {
+        upsertDevice(msg);
+      } else if (msg.type === 'leave') {
+        markOffline(msg.deviceId);
+      } else if (msg.type === 'error') {
+        setConnPill('error', 'Loi');
+        log('Server bao loi: ' + msg.message);
+      }
+    };
+    socket.onclose = function () {
+      if (manuallyStopped) { setConnPill('idle', 'Ngoai tuyen'); return; }
+      setConnPill('waiting', 'Mat ket noi');
+      scheduleReconnect();
+    };
+    socket.onerror = function () { log('Loi WebSocket.'); };
+  }
+
+  btnConnect.addEventListener('click', function () {
+    var room = roomCodeInput.value.trim();
+    if (!room) { statusEl.textContent = 'Vui long nhap ma phong.'; roomCodeInput.focus(); return; }
+    if (!viewKeyInput.value.trim()) { statusEl.textContent = 'Vui long nhap view key (xin nguoi quan tri server).'; viewKeyInput.focus(); return; }
+    localStorage.setItem('vt_roomCode', room);
+    localStorage.setItem('vt_viewKey', viewKeyInput.value.trim());
+    localStorage.setItem('vt_serverUrl', serverUrlInput.value.trim());
+    manuallyStopped = false;
+    reconnectAttempts = 0;
+    connectSocket();
+    btnConnect.disabled = true;
+    btnDisconnect.disabled = false;
+    roomCodeInput.disabled = true;
+    viewKeyInput.disabled = true;
+    serverUrlInput.disabled = true;
+  });
+
+  btnDisconnect.addEventListener('click', function () {
+    manuallyStopped = true;
+    clearTimeout(reconnectTimer);
+    if (socket) { socket.close(); socket = null; }
+    setConnPill('idle', 'Ngoai tuyen');
+    statusEl.textContent = 'Da ngat ket noi.';
+    log('Da ngat ket noi.');
+    btnConnect.disabled = false;
+    btnDisconnect.disabled = true;
+    roomCodeInput.disabled = false;
+    viewKeyInput.disabled = false;
+    serverUrlInput.disabled = false;
+  });
+
+  updateCounts();
+})();
+</script>
+</body>
+</html>

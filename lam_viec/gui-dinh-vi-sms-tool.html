@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gui dinh vi dinh ky qua SMS</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f8;
+    --panel-bg: #ffffff;
+    --card-bg: #fcfcfd;
+    --border: #dfe0e6;
+    --text: #1a1a1f;
+    --muted: #6b6b76;
+    --accent: #2563eb;
+    --accent-2: #16a34a;
+    --danger: #dc2626;
+    --shadow: 0 1px 2px rgba(15, 15, 20, .05);
+    --warn-bg: #fef3c7;
+    --warn-text: #92400e;
+    --warn-border: #f59e0b;
+    --console-bg: #17181d;
+    --console-text: #d7d9e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181c;
+      --panel-bg: #1f2025;
+      --card-bg: #232429;
+      --border: #34353c;
+      --text: #ececf0;
+      --muted: #9a9aa5;
+      --shadow: none;
+      --warn-bg: rgba(245, 158, 11, .12);
+      --warn-text: #fbbf24;
+      --warn-border: rgba(245, 158, 11, .4);
+      --console-bg: #101114;
+      --console-text: #c9cbd3;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  #app { max-width: 480px; margin: 0 auto; padding: 18px; }
+
+  #brandHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  #brandMark {
+    width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px;
+    background: var(--accent-2); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #brandHeader h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  #brandHeader p.sub { color: var(--muted); font-size: 11.5px; margin: 2px 0 0; }
+
+  #warnBox {
+    display: none;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--warn-bg);
+    color: var(--warn-text);
+    border: 1px solid var(--warn-border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  #warnBox svg { flex-shrink: 0; margin-top: 1px; }
+  #warnBox strong { display: block; margin-bottom: 2px; font-size: 12px; }
+  #warnBox p { margin: 0; }
+
+  section {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+  section:last-child { margin-bottom: 0; }
+  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .card-head > svg { color: var(--accent-2); flex-shrink: 0; }
+  .card-head h2 { flex: 1; margin: 0; font-size: 13px; font-weight: 700; color: var(--text); }
+  section p.note { color: var(--muted); font-size: 11.5px; margin: 8px 0 0; line-height: 1.5; }
+
+  label.field { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 10px; }
+  label.field span { display: block; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; font-size: 10px; }
+  input[type=tel], select {
+    width: 100%; font: inherit; font-size: 13px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px;
+  }
+  label.checkbox { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text); margin-bottom: 10px; cursor: pointer; }
+  label.checkbox input { width: 16px; height: 16px; flex-shrink: 0; }
+  label.checkbox:last-of-type { margin-bottom: 0; }
+
+  .pill-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+    padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.waiting { color: #b45309; background: rgba(245, 158, 11, .12); border-color: rgba(245, 158, 11, .35); }
+  .pill.waiting .dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+  .pill.active { color: var(--accent-2); background: rgba(22, 163, 74, .12); border-color: rgba(22, 163, 74, .35); }
+  .pill.active .dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+  .pill.error { color: var(--danger); background: rgba(220, 38, 38, .12); border-color: rgba(220, 38, 38, .35); }
+  @media (prefers-color-scheme: dark) {
+    .pill.waiting { color: #fbbf24; }
+    .pill.active { color: #4ade80; }
+    .pill.error { color: #f87171; }
+  }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+  .row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .row > * { flex: 1; }
+  button {
+    font: inherit;
+    font-weight: 500;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 12px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--panel-bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: background .12s ease, border-color .12s ease, color .12s ease, opacity .12s ease;
+  }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.start { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
+  button.end { background: var(--danger); border-color: var(--danger); color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .icon { width: 18px; height: 18px; }
+  .icon-sm { width: 14px; height: 14px; flex-shrink: 0; }
+
+  .coord-box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .coord-main {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 16px; font-weight: 600; color: var(--text); letter-spacing: .2px;
+  }
+  .coord-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .coord-meta div { display: flex; flex-direction: column; gap: 2px; }
+  .coord-meta span { color: var(--muted); text-transform: uppercase; letter-spacing: .03em; font-size: 9.5px; }
+  .coord-meta b { color: var(--text); font-weight: 600; font-size: 12px; }
+
+  .countdown { text-align: center; padding: 10px 0 2px; }
+  .countdown .num {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 26px; font-weight: 700; color: var(--accent);
+  }
+  .countdown .label { color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+  #log {
+    background: var(--console-bg);
+    color: var(--console-text);
+    border-radius: 8px;
+    padding: 10px 11px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="brandHeader">
+    <div id="brandMark">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+    </div>
+    <div>
+      <h1>Gui dinh vi dinh ky</h1>
+      <p class="sub">Tu mo app Nhan tin voi toa do, theo chu ky da dat</p>
+    </div>
+  </header>
+
+  <div id="warnBox">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+      <line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>
+    </svg>
+    <div>
+      <strong>Chua o ket noi an toan</strong>
+      <p>Trinh duyet co the tu choi cap quyen vi tri o dia chi nay. Neu bam "Bat dau" ma khong xin quyen GPS, hay thu mo file nay qua HTTPS/localhost thay vi mo truc tiep.</p>
+    </div>
+  </div>
+
+  <section>
+    <div class="card-head">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path>
+      </svg>
+      <h2>Nguoi nhan &amp; chu ky</h2>
+    </div>
+    <label class="field">
+      <span>So dien thoai nhan</span>
+      <input type="tel" id="phoneInput" placeholder="Vd: 0912345678 hoac +84912345678" />
+    </label>
+    <label class="field">
+      <span>Chu ky gui</span>
+      <select id="intervalSelect">
+        <option value="1">Moi 1 phut</option>
+        <option value="3">Moi 3 phut</option>
+        <option value="5" selected>Moi 5 phut</option>
+        <option value="10">Moi 10 phut</option>
+        <option value="15">Moi 15 phut</option>
+        <option value="30">Moi 30 phut</option>
+        <option value="60">Moi 60 phut</option>
+      </select>
+    </label>
+    <label class="checkbox">
+      <input type="checkbox" id="sendOnStart" checked />
+      Gui ngay 1 tin khi bam "Bat dau"
+    </label>
+    <label class="checkbox">
+      <input type="checkbox" id="keepAwake" checked />
+      Giu man hinh sang trong luc chay
+    </label>
+    <div class="pill-row" style="margin-top: 12px">
+      <span id="gpsPill" class="pill"><span class="dot"></span><span class="pill-label">Chua bat GPS</span></span>
+      <span id="runPill" class="pill"><span class="dot"></span><span class="pill-label">Dang dung</span></span>
+    </div>
+    <div class="row">
+      <button id="btnStart" class="start">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        Bat dau
+      </button>
+      <button id="btnStop" class="end" disabled>
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect></svg>
+        Dung
+      </button>
+    </div>
+    <button id="btnSendNow" class="primary" disabled style="width:100%; margin-top:8px">
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+      </svg>
+      Gui ngay 1 lan
+    </button>
+    <div id="status" class="note">Nhap so dien thoai roi bam "Bat dau".</div>
+  </section>
+
+  <section>
+    <div class="card-head">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>
+      </svg>
+      <h2>Vi tri hien tai</h2>
+    </div>
+    <div class="coord-box">
+      <div id="coords">
+        <div class="coord-main">Chua co du lieu</div>
+      </div>
+    </div>
+    <div class="countdown" id="countdownBox" style="display:none">
+      <div class="num" id="countdownNum">--:--</div>
+      <div class="label">Gui tiep theo sau</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card-head">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line>
+        <line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>
+      </svg>
+      <h2>Nhat Ky</h2>
+    </div>
+    <div id="log">San sang.</div>
+    <p class="note">Moi chu ky, trang se tu mo app Nhan tin voi so + noi dung toa do da dien san — ban chi can bam <b>Gui</b> trong app do (trinh duyet khong duoc phep tu gui SMS ngam vi ly do bao mat cua he dieu hanh). Can giu trang nay mo, man hinh sang de bo dem chay dung; neu khoa man hinh hoac chuyen app khac lau, chu ky co the bi tam dung va tiep tuc khi quay lai.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var phoneInput = document.getElementById('phoneInput');
+  var intervalSelect = document.getElementById('intervalSelect');
+  var sendOnStartCk = document.getElementById('sendOnStart');
+  var keepAwakeCk = document.getElementById('keepAwake');
+  var btnStart = document.getElementById('btnStart');
+  var btnStop = document.getElementById('btnStop');
+  var btnSendNow = document.getElementById('btnSendNow');
+  var statusEl = document.getElementById('status');
+  var coordsEl = document.getElementById('coords');
+  var logEl = document.getElementById('log');
+  var warnBox = document.getElementById('warnBox');
+  var gpsPillEl = document.getElementById('gpsPill');
+  var gpsPillLabel = gpsPillEl.querySelector('.pill-label');
+  var runPillEl = document.getElementById('runPill');
+  var runPillLabel = runPillEl.querySelector('.pill-label');
+  var countdownBox = document.getElementById('countdownBox');
+  var countdownNum = document.getElementById('countdownNum');
+
+  function log(msg) {
+    var time = new Date().toLocaleTimeString();
+    logEl.textContent = '[' + time + '] ' + msg + '\n' + logEl.textContent;
+  }
+  function setGpsPill(kind, text) { gpsPillEl.className = 'pill ' + kind; gpsPillLabel.textContent = text; }
+  function setRunPill(kind, text) { runPillEl.className = 'pill ' + kind; runPillLabel.textContent = text; }
+
+  if (!window.isSecureContext) warnBox.style.display = 'flex';
+
+  // ---------- Cau hinh mac dinh (nho lai qua localStorage) ----------
+  phoneInput.value = localStorage.getItem('gd_phone') || '';
+  if (localStorage.getItem('gd_interval')) intervalSelect.value = localStorage.getItem('gd_interval');
+  if (localStorage.getItem('gd_sendOnStart') != null) sendOnStartCk.checked = localStorage.getItem('gd_sendOnStart') === '1';
+  if (localStorage.getItem('gd_keepAwake') != null) keepAwakeCk.checked = localStorage.getItem('gd_keepAwake') === '1';
+
+  // ---------- Wake Lock: giu man hinh sang trong luc chay ----------
+  var wakeLock = null;
+  var running = false;
+
+  function requestWakeLock() {
+    if (!keepAwakeCk.checked) return;
+    if (!('wakeLock' in navigator)) { log('Trinh duyet khong ho tro Wake Lock - man hinh co the tu khoa lam gian doan chu ky.'); return; }
+    navigator.wakeLock.request('screen').then(function (lock) {
+      wakeLock = lock;
+      log('Da giu man hinh sang.');
+      lock.addEventListener('release', function () { wakeLock = null; });
+    }).catch(function (err) { log('Khong xin duoc Wake Lock: ' + err.message); });
+  }
+  function releaseWakeLock() {
+    if (wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (running && wakeLock === null && document.visibilityState === 'visible') requestWakeLock();
+  });
+
+  // ---------- Geolocation ----------
+  var watchId = null;
+  var lastPosition = null;
+
+  function errorMessage(err) {
+    switch (err.code) {
+      case err.PERMISSION_DENIED: return 'Bi tu choi quyen truy cap vi tri.';
+      case err.POSITION_UNAVAILABLE: return 'Khong xac dinh duoc vi tri (GPS/mang yeu).';
+      case err.TIMEOUT: return 'Het thoi gian cho vi tri, thu lai.';
+      default: return 'Loi khong xac dinh: ' + err.message;
+    }
+  }
+
+  function onPositionSuccess(pos) {
+    lastPosition = pos;
+    var c = pos.coords;
+
+    setGpsPill('active', 'GPS dang chay');
+    coordsEl.innerHTML =
+      '<div class="coord-main">' + c.latitude.toFixed(6) + ', ' + c.longitude.toFixed(6) + '</div>' +
+      '<div class="coord-meta">' +
+        '<div><span>Do chinh xac</span><b>&plusmn;' + Math.round(c.accuracy || 0) + ' m</b></div>' +
+        '<div><span>Toc do</span><b>' + (c.speed != null ? Math.round(c.speed * 3.6) + ' km/h' : '--') + '</b></div>' +
+        '<div><span>Cap nhat</span><b>' + new Date(pos.timestamp).toLocaleTimeString() + '</b></div>' +
+      '</div>';
+    btnSendNow.disabled = false;
+  }
+
+  function onPositionError(err) {
+    var msg = errorMessage(err);
+    setGpsPill('error', 'Loi GPS');
+    if (running) statusEl.textContent = 'Loi GPS: ' + msg;
+    log('Loi dinh vi: ' + msg);
+  }
+
+  // ---------- Xay dung va mo lien ket SMS ----------
+  function sanitizePhone(raw) {
+    return (raw || '').trim().replace(/[\s-]+/g, '');
+  }
+
+  function buildLocationMessage(c) {
+    return 'Toa do: ' + c.latitude.toFixed(6) + ',' + c.longitude.toFixed(6);
+  }
+
+  function openSmsApp(phone, body) {
+    // Khong encodeURIComponent so dien thoai: sau sanitizePhone() no chi con
+    // chu so va dau "+" tuy chon, ca 2 deu hop le trong sms: URI. Tranh ma
+    // hoa (vd "+" -> "%2B") de khong le thuoc viec app Nhan tin tren may co
+    // giai ma URI dung chuan hay chi tach chuoi tho.
+    var uri = 'sms:' + phone + '?body=' + encodeURIComponent(body);
+    window.location.href = uri;
+  }
+
+  function doSend() {
+    var phone = sanitizePhone(phoneInput.value);
+    var c = lastPosition.coords;
+    var body = buildLocationMessage(c);
+    openSmsApp(phone, body);
+    log('Da mo app Nhan tin toi ' + phone + ' voi toa do: ' + c.latitude.toFixed(6) + ', ' + c.longitude.toFixed(6) + ' (ban bam Gui trong app de hoan tat).');
+  }
+
+  // ---------- Lap lich gui theo chu ky (dua tren moc thoi gian tuyet doi,
+  // khong bi troi khi tab bi trinh duyet lam cham timer luc an/khoa man hinh) ----------
+  var nextSendAt = null;
+  var tickTimer = null;
+
+  function intervalMs() { return parseInt(intervalSelect.value, 10) * 60 * 1000; }
+
+  function updateCountdownDisplay() {
+    if (nextSendAt === null) { countdownBox.style.display = 'none'; return; }
+    countdownBox.style.display = 'block';
+    var remain = Math.max(0, nextSendAt - Date.now());
+    var totalSec = Math.ceil(remain / 1000);
+    var mm = Math.floor(totalSec / 60);
+    var ss = totalSec % 60;
+    countdownNum.textContent = (mm < 10 ? '0' : '') + mm + ':' + (ss < 10 ? '0' : '') + ss;
+  }
+
+  function attemptSend() {
+    if (lastPosition) {
+      doSend();
+      nextSendAt = Date.now() + intervalMs();
+    } else {
+      log('Chua co vi tri GPS, se thu lai sau 10 giay.');
+      nextSendAt = Date.now() + 10000;
+    }
+    updateCountdownDisplay();
+  }
+
+  function tick() {
+    if (running && nextSendAt !== null && Date.now() >= nextSendAt) attemptSend();
+    updateCountdownDisplay();
+  }
+
+  // ---------- Bat / dung ----------
+  btnStart.addEventListener('click', function () {
+    var phone = sanitizePhone(phoneInput.value);
+    if (!phone || phone.replace(/^\+/, '').length < 8) {
+      statusEl.textContent = 'Vui long nhap so dien thoai hop le.';
+      phoneInput.focus();
+      return;
+    }
+    if (!('geolocation' in navigator)) { statusEl.textContent = 'Trinh duyet nay khong ho tro Geolocation API.'; return; }
+
+    localStorage.setItem('gd_phone', phone);
+    localStorage.setItem('gd_interval', intervalSelect.value);
+    localStorage.setItem('gd_sendOnStart', sendOnStartCk.checked ? '1' : '0');
+    localStorage.setItem('gd_keepAwake', keepAwakeCk.checked ? '1' : '0');
+
+    running = true;
+    requestWakeLock();
+
+    setRunPill('active', 'Dang chay');
+    statusEl.textContent = 'Dang chay - gui toa do toi ' + phone + ' moi ' + intervalSelect.value + ' phut.';
+    log('Bat dau: gui toi ' + phone + ', chu ky ' + intervalSelect.value + ' phut.');
+
+    nextSendAt = sendOnStartCk.checked ? Date.now() : Date.now() + intervalMs();
+    updateCountdownDisplay();
+    tickTimer = setInterval(tick, 1000);
+    tick();
+
+    btnStart.disabled = true;
+    btnStop.disabled = false;
+    phoneInput.disabled = true;
+    intervalSelect.disabled = true;
+    sendOnStartCk.disabled = true;
+    keepAwakeCk.disabled = true;
+  });
+
+  btnStop.addEventListener('click', function () {
+    running = false;
+    if (tickTimer != null) { clearInterval(tickTimer); tickTimer = null; }
+    nextSendAt = null;
+    updateCountdownDisplay();
+    releaseWakeLock();
+    setRunPill('idle', 'Dang dung');
+    statusEl.textContent = 'Da dung. Bam "Bat dau" de tiep tuc gui dinh ky.';
+    log('Da dung.');
+
+    btnStart.disabled = false;
+    btnStop.disabled = true;
+    phoneInput.disabled = false;
+    intervalSelect.disabled = false;
+    sendOnStartCk.disabled = false;
+    keepAwakeCk.disabled = false;
+  });
+
+  btnSendNow.addEventListener('click', function () {
+    var phone = sanitizePhone(phoneInput.value);
+    if (!phone || phone.replace(/^\+/, '').length < 8) {
+      statusEl.textContent = 'Vui long nhap so dien thoai hop le.';
+      phoneInput.focus();
+      return;
+    }
+    if (!lastPosition) { log('Chua co vi tri GPS de gui.'); return; }
+    localStorage.setItem('gd_phone', phone);
+    doSend();
+  });
+
+  // Chi 1 watch GPS duy nhat, chay suot vong doi trang (khong phu thuoc Bat dau/Dung)
+  // de "Gui ngay 1 lan" luon san sang dung duoc va nut Dung khong lam mat vi tri hien tai.
+  if ('geolocation' in navigator) {
+    setGpsPill('waiting', 'Dang cho GPS');
+    watchId = navigator.geolocation.watchPosition(onPositionSuccess, onPositionError, {
+      enableHighAccuracy: true, maximumAge: 5000, timeout: 20000
+    });
+  } else {
+    setGpsPill('error', 'Khong ho tro GPS');
+  }
+})();
+</script>
+</body>
+</html>

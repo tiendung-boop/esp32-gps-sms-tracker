@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Doc toa do tu SMS + Xem tren ban do</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f8;
+    --panel-bg: #ffffff;
+    --card-bg: #fcfcfd;
+    --border: #dfe0e6;
+    --text: #1a1a1f;
+    --muted: #6b6b76;
+    --accent: #2563eb;
+    --accent-2: #16a34a;
+    --danger: #dc2626;
+    --shadow: 0 1px 2px rgba(15, 15, 20, .05);
+    --console-bg: #17181d;
+    --console-text: #d7d9e0;
+    --gmaps: #ea4335;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181c;
+      --panel-bg: #1f2025;
+      --card-bg: #232429;
+      --border: #34353c;
+      --text: #ececf0;
+      --muted: #9a9aa5;
+      --shadow: none;
+      --console-bg: #101114;
+      --console-text: #c9cbd3;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
+  #app { display: flex; height: 100vh; }
+  #panel { width: 380px; min-width: 320px; background: var(--panel-bg); border-right: 1px solid var(--border); padding: 18px; overflow-y: auto; }
+
+  @media (max-width: 480px) {
+    #app { flex-direction: column; }
+    #panel { width: 100%; min-width: 0; max-height: 62vh; border-right: none; border-bottom: 1px solid var(--border); padding: 12px; }
+    main { min-height: 38vh; }
+  }
+
+  #brandHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  #brandMark { width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; }
+  #brandHeader h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  #brandHeader p.sub { color: var(--muted); font-size: 11.5px; margin: 2px 0 0; }
+
+  section { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  section:last-child { margin-bottom: 0; }
+  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .card-head > svg { color: var(--accent); flex-shrink: 0; }
+  .card-head h2 { flex: 1; margin: 0; font-size: 13px; font-weight: 700; color: var(--text); }
+  section p.note { color: var(--muted); font-size: 11.5px; margin: 8px 0 0; line-height: 1.5; }
+
+  textarea {
+    width: 100%; font: inherit; font-size: 12.5px; color: var(--text); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 9px; padding: 9px 10px; resize: vertical;
+    min-height: 84px; line-height: 1.5;
+  }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; white-space: nowrap; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.ok { color: var(--accent-2); background: rgba(22, 163, 74, .12); border-color: rgba(22, 163, 74, .35); }
+  .pill.error { color: var(--danger); background: rgba(220, 38, 38, .12); border-color: rgba(220, 38, 38, .35); }
+  @media (prefers-color-scheme: dark) { .pill.ok { color: #4ade80; } .pill.error { color: #f87171; } }
+
+  .row { display: flex; gap: 8px; margin-top: 10px; }
+  .row > * { flex: 1; }
+  button { font: inherit; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border); background: var(--panel-bg); color: var(--text); cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease, opacity .12s ease; }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.gmaps { background: var(--gmaps); border-color: var(--gmaps); color: #fff; }
+  button.ghost { background: transparent; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .icon { width: 18px; height: 18px; }
+  .icon-sm { width: 14px; height: 14px; flex-shrink: 0; }
+
+  .coord-box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .coord-main { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 16px; font-weight: 600; color: var(--text); letter-spacing: .2px; }
+  .coord-empty { color: var(--muted); font-size: 12.5px; }
+
+  .hist-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+  .hist-item { background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 7px 9px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .hist-item:hover { border-color: var(--muted); }
+  .hist-item .hi-main { flex: 1; min-width: 0; }
+  .hist-item .hi-coord { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 11.5px; color: var(--text); }
+  .hist-item .hi-time { font-size: 10px; color: var(--muted); margin-top: 1px; }
+  #histEmpty { color: var(--muted); font-size: 11.5px; }
+
+  #log { background: var(--console-bg); color: var(--console-text); border-radius: 8px; padding: 10px 11px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 11px; line-height: 1.7; white-space: pre-wrap; max-height: 130px; overflow-y: auto; }
+
+  main { flex: 1; position: relative; }
+  #map { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <header id="brandHeader">
+      <div id="brandMark">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16v12H5.17L4 17.17V4z"></path>
+        </svg>
+      </div>
+      <div>
+        <h1>Doc toa do tu SMS</h1>
+        <p class="sub">Dan noi dung SMS (vd tu GpsSmsSender.ino), tu dong tach toa do va hien tren ban do</p>
+      </div>
+    </header>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16v12H5.17L4 17.17V4z"></path>
+        </svg>
+        <h2>Noi dung SMS</h2>
+        <span id="parsePill" class="pill"><span class="dot"></span><span class="pill-label">San sang</span></span>
+      </div>
+      <textarea id="smsText" placeholder="Dan nguyen van SMS vao day, vd: &#10;Toa do: 10.123456,106.123456"></textarea>
+      <div class="row">
+        <button id="btnParse" class="primary">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          Doc toa do
+        </button>
+        <button id="btnPasteClear" class="ghost">Xoa o dan</button>
+      </div>
+      <p class="note">Nhan dien dinh dang "Toa do: lat,lon" (GpsSmsSender.ino gui), cap so thap phan "lat,lon" bat ky trong tin nhan, hoac link Google Maps dang ?q=lat,lon.</p>
+    </section>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>
+        </svg>
+        <h2>Toa do doc duoc</h2>
+      </div>
+      <div class="coord-box">
+        <div id="coords"><div class="coord-empty">Chua doc duoc toa do nao.</div></div>
+      </div>
+      <div class="row">
+        <button id="btnOpenGmaps" class="gmaps" disabled style="width:100%">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+          Mo Google Maps
+        </button>
+      </div>
+      <button id="btnDownload" class="primary" disabled style="width:100%; margin-top:8px">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Tai GeoJSON
+      </button>
+    </section>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15.5 14"></polyline>
+        </svg>
+        <h2>Lich su phien nay</h2>
+        <button id="btnClearHist" class="ghost" style="padding:4px 8px; font-size:11px">Xoa</button>
+      </div>
+      <div id="histList" class="hist-list"><div id="histEmpty">Chua co toa do nao duoc doc.</div></div>
+    </section>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line>
+          <line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>
+        </svg>
+        <h2>Nhat Ky</h2>
+      </div>
+      <div id="log">San sang. Dan SMS vao o tren roi bam "Doc toa do".</div>
+    </section>
+  </aside>
+  <main>
+    <div id="map"></div>
+  </main>
+</div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script>
+// Polyfill AbortSignal.prototype.throwIfAborted (API moi ~2022) - thieu tren
+// trinh duyet cu (vd Edge doi Windows 10 IoT Enterprise chua cap nhat), lam
+// pmtiles.js loi "throwIfAborted is not a function" va ban do bi trang.
+if (typeof AbortSignal !== 'undefined' && !AbortSignal.prototype.throwIfAborted) {
+  AbortSignal.prototype.throwIfAborted = function () {
+    if (this.aborted) {
+      throw (this.reason !== undefined ? this.reason : new DOMException('signal is aborted without reason', 'AbortError'));
+    }
+  };
+}
+</script>
+<script src="vendor/pmtiles/pmtiles.js"></script>
+<script src="vendor/protomaps-leaflet/protomaps-leaflet.js"></script>
+<script src="da-nang-pmtiles-data.js"></script>
+<script src="da-nang-places-data.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---------- DOM ----------
+  var smsTextEl = document.getElementById('smsText');
+  var btnParse = document.getElementById('btnParse');
+  var btnPasteClear = document.getElementById('btnPasteClear');
+  var parsePillEl = document.getElementById('parsePill');
+  var parsePillLabel = parsePillEl.querySelector('.pill-label');
+  var coordsEl = document.getElementById('coords');
+  var btnOpenGmaps = document.getElementById('btnOpenGmaps');
+  var btnDownload = document.getElementById('btnDownload');
+  var histListEl = document.getElementById('histList');
+  var histEmptyEl = document.getElementById('histEmpty');
+  var btnClearHist = document.getElementById('btnClearHist');
+  var logEl = document.getElementById('log');
+
+  function log(msg) {
+    var time = new Date().toLocaleTimeString();
+    logEl.textContent = '[' + time + '] ' + msg + '\n' + logEl.textContent;
+  }
+  function setParsePill(kind, text) {
+    parsePillEl.className = 'pill ' + kind;
+    parsePillLabel.textContent = text;
+  }
+
+  // ---------- Ban do offline (KHONG can internet, KHONG can server nao chay -
+  // du lieu .pmtiles duoc nhung san duoi dang base64 trong da-nang-pmtiles-data.js
+  // va doc thang tu bo nho, vi trang nay mo qua file:// (bam doi/Run) nen
+  // khong the goi HTTP Range toi 1 server nhu /thu lam. Xem HUONG_DAN.txt muc
+  // "BAN DO OFFLINE". Vung phu song: Da Nang, khop voi /thu.
+  //
+  // ArrayBufferSource: cai dat toi thieu interface "Source" cua thu vien
+  // pmtiles (getBytes(offset,length) + getKey()) de doc truc tiep tu 1
+  // ArrayBuffer da co san trong bo nho, thay vi fetch() qua mang (fetch()
+  // toi file:// bi trinh duyet chan hoan toan, da kiem chung rieng).
+  function base64ToArrayBuffer(base64) {
+    var binary = atob(base64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+  function ArrayBufferSource(buf) { this.buf = buf; }
+  ArrayBufferSource.prototype.getKey = function () { return 'da-nang.pmtiles'; };
+  ArrayBufferSource.prototype.getBytes = function (offset, length) {
+    return Promise.resolve({ data: this.buf.slice(offset, offset + length) });
+  };
+
+  var pmtilesArchive = new pmtiles.PMTiles(new ArrayBufferSource(base64ToArrayBuffer(window.__DA_NANG_PMTILES_BASE64)));
+
+  // maxZoom dat thang tren map vi layer nay khong tu dang ky gia tri do voi
+  // Leaflet nhu L.TileLayer cu hay lam. maxBounds/maxBoundsViscosity gioi
+  // han han vung keo/zoom dung bang bbox da dung de cat du lieu (xem
+  // nhan-sms-tu-dong-tool.html, sua 2026-09-11 - cung ly do).
+  var DATA_BOUNDS = [[12.7, 105.2], [18.15, 109.1]];
+  var map = L.map('map', { maxZoom: 19, maxBounds: DATA_BOUNDS, maxBoundsViscosity: 1.0 }).setView([16.047, 108.220], 12);
+  protomapsL.leafletLayer({
+    url: pmtilesArchive,
+    flavor: 'light',
+    lang: 'vi',
+    // maxDataZoom mac dinh cua thu vien la 15 neu khong khai bao - file
+    // .pmtiles nhung o day (mo rong vung 2026-09-10) chi cat toi z12 de giu
+    // dung luong nhung duoc, nen PHAI khai bao dung 12, neu khong thu vien
+    // se tuong data co toi z15 va co tai cac tile z13-16 KHONG TON TAI trong
+    // file -> tile rong -> hien xam khi phong to qua z12 (loi da gap, sua
+    // 2026-09-11). Sau z12 thu vien tu phong to lai tile z12 (overzoom),
+    // net hon la mat han noi dung.
+    maxDataZoom: 12,
+    // Chi tai/ve tile MOI sau khi dung keo/zoom han (khong lien tuc trong
+    // luc dang thao tac) - giam giat/lag ro voi tile vector nang hon tile
+    // anh tinh, nhat la sau khi vung du lieu lon hon nhieu (2026-09-10). Xem
+    // giai thich day du trong nhan-sms-tu-dong-tool.html (2026-09-11).
+    updateWhenIdle: true,
+    updateWhenZooming: false,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://protomaps.com">Protomaps</a>'
+  }).addTo(map);
+
+  var posMarker = null;
+  var lastResult = null; // { lat, lon, rawText, time }
+
+  // ---------- Tra ten dia diem OFFLINE (khong goi mang) ----------
+  // Thay vi goi Nominatim qua internet, tim diem co ten GAN NHAT trong
+  // window.__DA_NANG_PLACES (nhung san trong da-nang-places-data.js - mang
+  // [lat, lon, ten], ~8300 duong/dia danh/truong hoc/benh vien... o vung Da
+  // Nang, dung tu OpenStreetMap qua Overpass API cung 1 nguon voi
+  // .pmtiles). Xem lam_viec/CLAUDE.md de biet cach tao lai file nay.
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function haversineMeters(lat1, lon1, lat2, lon2) {
+    var R = 6371000, toRad = Math.PI / 180;
+    var dLat = (lat2 - lat1) * toRad, dLon = (lon2 - lon1) * toRad;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+  var MAX_PLACE_DIST_M = 5000; // qua xa nghia la ngoai vung du lieu Da Nang, khong hien de tranh goi y sai
+  function findNearestPlace(lat, lon) {
+    var places = window.__DA_NANG_PLACES;
+    if (!places || !places.length) return null;
+    var best = null, bestDist = Infinity;
+    for (var i = 0; i < places.length; i++) {
+      var d = haversineMeters(lat, lon, places[i][0], places[i][1]);
+      if (d < bestDist) { bestDist = d; best = places[i]; }
+    }
+    return (best && bestDist <= MAX_PLACE_DIST_M) ? best[2] : null;
+  }
+  function popupHtml(lat, lon) {
+    var html = '<b>' + lat.toFixed(6) + ', ' + lon.toFixed(6) + '</b>';
+    var placeName = findNearestPlace(lat, lon);
+    if (placeName) html += '<br>' + escapeHtml(placeName);
+    return html;
+  }
+
+  function showOnMap(lat, lon) {
+    var latlng = [lat, lon];
+    if (!posMarker) {
+      posMarker = L.marker(latlng).addTo(map);
+    } else {
+      posMarker.setLatLng(latlng);
+    }
+    posMarker.bindPopup(popupHtml(lat, lon)).openPopup();
+    map.setView(latlng, 16);
+  }
+
+  // ---------- Tach toa do tu van ban SMS ----------
+  function isValidLatLon(lat, lon) {
+    return isFinite(lat) && isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+  }
+
+  function parseCoordsFromText(text) {
+    if (!text) return null;
+    // 1) Link Google Maps dang ?q=lat,lon hoac &query=lat,lon (vd link tu cac tool khac trong lam_viec/)
+    var linkMatch = text.match(/[?&](?:q|query)=(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/);
+    if (linkMatch) {
+      var la = parseFloat(linkMatch[1]), lo = parseFloat(linkMatch[2]);
+      if (isValidLatLon(la, lo)) return { lat: la, lon: lo };
+    }
+    // 2) Cap so thap phan "lat,lon" bat ky trong van ban - khop dung dinh dang
+    //    "Toa do: lat,lon" ma GpsSmsSender.ino gui (buildLocationMessage()).
+    var re = /(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/g;
+    var m;
+    while ((m = re.exec(text)) !== null) {
+      var lat2 = parseFloat(m[1]), lon2 = parseFloat(m[2]);
+      if (isValidLatLon(lat2, lon2)) return { lat: lat2, lon: lon2 };
+    }
+    return null;
+  }
+
+  // ---------- Lich su phien (chi luu trong bo nho tab nay) ----------
+  var history = [];
+
+  function renderHistory() {
+    histListEl.innerHTML = '';
+    if (history.length === 0) {
+      histListEl.appendChild(histEmptyEl);
+      return;
+    }
+    history.slice().reverse().forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'hist-item';
+      row.innerHTML =
+        '<div class="hi-main">' +
+          '<div class="hi-coord">' + item.lat.toFixed(6) + ', ' + item.lon.toFixed(6) + '</div>' +
+          '<div class="hi-time">' + item.time.toLocaleTimeString() + '</div>' +
+        '</div>';
+      row.addEventListener('click', function () {
+        lastResult = item;
+        showResult(item, false);
+      });
+      histListEl.appendChild(row);
+    });
+  }
+
+  btnClearHist.addEventListener('click', function () {
+    history = [];
+    renderHistory();
+    log('Da xoa lich su phien nay.');
+  });
+
+  // ---------- Hien ket qua doc duoc ----------
+  function showResult(item, addToHistory) {
+    coordsEl.innerHTML = '<div class="coord-main">' + item.lat.toFixed(6) + ', ' + item.lon.toFixed(6) + '</div>';
+    btnOpenGmaps.disabled = false;
+    btnDownload.disabled = false;
+    showOnMap(item.lat, item.lon);
+    if (addToHistory) {
+      history.push(item);
+      renderHistory();
+    }
+  }
+
+  function doParse() {
+    var text = smsTextEl.value;
+    var found = parseCoordsFromText(text);
+    if (!found) {
+      setParsePill('error', 'Khong tim thay toa do');
+      log('Khong tach duoc toa do tu noi dung da dan - kiem tra lai dinh dang SMS.');
+      return;
+    }
+    setParsePill('ok', 'Da doc toa do');
+    log('Doc duoc toa do: ' + found.lat.toFixed(6) + ', ' + found.lon.toFixed(6));
+    lastResult = { lat: found.lat, lon: found.lon, rawText: text.trim(), time: new Date() };
+    showResult(lastResult, true);
+  }
+
+  btnParse.addEventListener('click', doParse);
+  smsTextEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) doParse();
+  });
+
+  btnPasteClear.addEventListener('click', function () {
+    smsTextEl.value = '';
+    smsTextEl.focus();
+  });
+
+  // ---------- Mo Google Maps (khong can API key/dang nhap) ----------
+  btnOpenGmaps.addEventListener('click', function () {
+    if (!lastResult) return;
+    var url = 'https://www.google.com/maps/search/?api=1&query=' + lastResult.lat + ',' + lastResult.lon;
+    window.open(url, '_blank', 'noopener');
+    log('Da mo Google Maps cho toa do ' + lastResult.lat.toFixed(6) + ', ' + lastResult.lon.toFixed(6));
+  });
+
+  // ---------- Xuat GeoJSON ----------
+  btnDownload.addEventListener('click', function () {
+    if (!lastResult) return;
+    var geojson = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: {
+          source: 'sms',
+          raw_text: lastResult.rawText || null,
+          parsed_at: lastResult.time.toISOString()
+        },
+        geometry: { type: 'Point', coordinates: [lastResult.lon, lastResult.lat] }
+      }]
+    };
+    var blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/geo+json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'toa-do-tu-sms.geojson';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    log('Da tai GeoJSON.');
+  });
+
+  // ---------- San sang ngay khi mo trang ----------
+  smsTextEl.focus();
+})();
+</script>
+</body>
+</html>

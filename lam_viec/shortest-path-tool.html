@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tim duong ngan nhat (offline) tu GeoJSON</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f8;
+    --panel-bg: #ffffff;
+    --border: #d9d9e0;
+    --text: #1a1a1f;
+    --muted: #6b6b76;
+    --accent: #2563eb;
+    --accent-2: #16a34a;
+    --danger: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181c;
+      --panel-bg: #1f2025;
+      --border: #33343b;
+      --text: #ececf0;
+      --muted: #9a9aa5;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  #app { display: flex; height: 100vh; }
+  #panel {
+    width: 340px;
+    min-width: 300px;
+    background: var(--panel-bg);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    overflow-y: auto;
+  }
+  #panel h1 { font-size: 16px; margin: 0 0 4px; }
+  #panel p.sub { color: var(--muted); font-size: 12.5px; margin: 0 0 16px; line-height: 1.5; }
+  section { margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  section:last-child { border-bottom: none; }
+  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
+  section p.note { color: var(--muted); font-size: 11.5px; margin: 6px 0 0; line-height: 1.5; }
+  .row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .row > * { flex: 1; }
+  button {
+    font: inherit;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel-bg);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.start { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
+  button.end { background: var(--danger); border-color: var(--danger); color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.active { outline: 2px solid var(--text); }
+  input[type="number"] {
+    font: inherit;
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+  }
+  label { font-size: 12.5px; color: var(--muted); display: block; margin-bottom: 4px; }
+  #dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  #dropzone.drag { border-color: var(--accent); color: var(--accent); }
+  #stats, #log { font-size: 12.5px; color: var(--muted); line-height: 1.6; white-space: pre-wrap; }
+  #result .big { font-size: 20px; font-weight: 600; color: var(--text); }
+  #result { font-size: 13px; }
+  main { flex: 1; position: relative; }
+  #map { width: 100%; height: 100%; display: block; cursor: grab; }
+  #map.grabbing { cursor: grabbing; }
+  #hint {
+    position: absolute; bottom: 12px; left: 12px;
+    background: var(--panel-bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--muted);
+  }
+  #log { max-height: 140px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <h1>Tim duong ngan nhat (offline)</h1>
+    <p class="sub">Chay hoan toan trong trinh duyet, khong can Internet. Nap mang luoi duong dang GeoJSON
+      (LineString), chon diem bat dau / ket thuc, thuat toan Dijkstra se tim duong di ngan nhat theo cac doan
+      duong da co san.</p>
+
+    <section>
+      <h2>1. Nap mang luoi duong</h2>
+      <div id="dropzone">Keo tha file GeoJSON vao day<br />hoac bam de chon file</div>
+      <input type="file" id="fileInput" accept=".json,.geojson,application/geo+json,application/json" style="display:none" />
+      <div class="row" style="margin-top:8px">
+        <button id="btnSample">Dung mang luoi mau</button>
+      </div>
+      <div class="row">
+        <div style="flex:2">
+          <label for="tolerance">Nguong gop diem gan nhau (m)</label>
+          <input type="number" id="tolerance" value="15" min="0" step="1" />
+        </div>
+        <div style="flex:1; display:flex; align-items:flex-end;">
+          <button id="btnRebuild" style="width:100%">Ap dung</button>
+        </div>
+      </div>
+      <div id="stats">Chua co du lieu.</div>
+      <p class="note">Chi dung cac doi tuong dang Duong (LineString/MultiLineString) lam mang luoi. Diem (Point)
+        va Vung (Polygon) se bi bo qua.</p>
+    </section>
+
+    <section>
+      <h2>2. Chon diem</h2>
+      <div class="row">
+        <button id="btnPickStart" class="start">Diem bat dau</button>
+        <button id="btnPickEnd" class="end">Diem ket thuc</button>
+      </div>
+      <button id="btnClear" style="width:100%">Xoa lua chon</button>
+      <p class="note">Bam nut roi click len 1 node tren ban do; hoac click thang len ban do (lan 1 = diem bat
+        dau, lan 2 = diem ket thuc).</p>
+    </section>
+
+    <section>
+      <h2>3. Ket qua</h2>
+      <div id="result">Chua chon du 2 diem.</div>
+      <div class="row" style="margin-top:10px">
+        <button id="btnDownload" class="primary" disabled>Tai GeoJSON ket qua</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Nhat ky</h2>
+      <div id="log">San sang.</div>
+    </section>
+  </aside>
+  <main>
+    <canvas id="map"></canvas>
+    <div id="hint">Keo chuot: di chuyen &middot; Cuon: zoom &middot; Click: chon diem</div>
+  </main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- DOM ----------
+  var canvas = document.getElementById('map');
+  var ctx = canvas.getContext('2d');
+  var dropzone = document.getElementById('dropzone');
+  var fileInput = document.getElementById('fileInput');
+  var btnSample = document.getElementById('btnSample');
+  var toleranceInput = document.getElementById('tolerance');
+  var btnRebuild = document.getElementById('btnRebuild');
+  var statsEl = document.getElementById('stats');
+  var btnPickStart = document.getElementById('btnPickStart');
+  var btnPickEnd = document.getElementById('btnPickEnd');
+  var btnClear = document.getElementById('btnClear');
+  var resultEl = document.getElementById('result');
+  var btnDownload = document.getElementById('btnDownload');
+  var logEl = document.getElementById('log');
+
+  // ---------- State ----------
+  var rawGeoJSON = null;
+  var graph = null; // { nodes: [{lng,lat}], adjacency: [[{to,weight}]], lineCount, edgeCount }
+  var origin = { lng: 0, lat: 0 };
+  var view = { scale: 1, camX: 0, camY: 0 };
+  var startNode = null;
+  var endNode = null;
+  var pathResult = null; // { path: [ids], distance }
+  var pickMode = null; // 'start' | 'end'
+  var isPanning = false;
+  var panMoved = false;
+  var lastMouse = { x: 0, y: 0 };
+
+  function log(msg) {
+    var time = new Date().toLocaleTimeString();
+    logEl.textContent = '[' + time + '] ' + msg + '\n' + logEl.textContent;
+  }
+
+  // ---------- Geo helpers ----------
+  function haversine(lng1, lat1, lng2, lat2) {
+    var R = 6371000;
+    var rad = Math.PI / 180;
+    var dLat = (lat2 - lat1) * rad;
+    var dLng = (lng2 - lng1) * rad;
+    var a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  function toMeters(lng, lat) {
+    var xm = (lng - origin.lng) * 111320 * Math.cos((origin.lat * Math.PI) / 180);
+    var ym = (lat - origin.lat) * 110540;
+    return [xm, ym];
+  }
+
+  function toScreen(lng, lat) {
+    var m = toMeters(lng, lat);
+    var w = canvas.clientWidth;
+    var h = canvas.clientHeight;
+    return [
+      w / 2 + (m[0] - view.camX) * view.scale,
+      h / 2 - (m[1] - view.camY) * view.scale,
+    ];
+  }
+
+  // ---------- Min-heap (binary heap) ----------
+  function MinHeap() { this.data = []; }
+  MinHeap.prototype.size = function () { return this.data.length; };
+  MinHeap.prototype.push = function (item) {
+    this.data.push(item);
+    var i = this.data.length - 1;
+    while (i > 0) {
+      var p = (i - 1) >> 1;
+      if (this.data[p].priority <= this.data[i].priority) break;
+      var tmp = this.data[p]; this.data[p] = this.data[i]; this.data[i] = tmp;
+      i = p;
+    }
+  };
+  MinHeap.prototype.pop = function () {
+    var top = this.data[0];
+    var last = this.data.pop();
+    if (this.data.length > 0) {
+      this.data[0] = last;
+      var i = 0, n = this.data.length;
+      while (true) {
+        var smallest = i, l = 2 * i + 1, r = 2 * i + 2;
+        if (l < n && this.data[l].priority < this.data[smallest].priority) smallest = l;
+        if (r < n && this.data[r].priority < this.data[smallest].priority) smallest = r;
+        if (smallest === i) break;
+        var tmp = this.data[smallest]; this.data[smallest] = this.data[i]; this.data[i] = tmp;
+        i = smallest;
+      }
+    }
+    return top;
+  };
+
+  // ---------- Graph building ----------
+  function buildGraph(fc, snapToleranceM) {
+    var nodes = [];
+    var adjacency = [];
+    var cellSizeDeg = 0.001;
+    var grid = new Map();
+
+    function cellKeyFor(cx, cy) { return cx + ',' + cy; }
+
+    function findOrCreateNode(lng, lat) {
+      var cx = Math.floor(lng / cellSizeDeg);
+      var cy = Math.floor(lat / cellSizeDeg);
+      for (var dx = -1; dx <= 1; dx++) {
+        for (var dy = -1; dy <= 1; dy++) {
+          var bucket = grid.get(cellKeyFor(cx + dx, cy + dy));
+          if (!bucket) continue;
+          for (var k = 0; k < bucket.length; k++) {
+            var idx = bucket[k];
+            var n = nodes[idx];
+            if (haversine(lng, lat, n.lng, n.lat) <= snapToleranceM) return idx;
+          }
+        }
+      }
+      var newIdx = nodes.length;
+      nodes.push({ lng: lng, lat: lat });
+      adjacency.push([]);
+      var key = cellKeyFor(cx, cy);
+      if (!grid.has(key)) grid.set(key, []);
+      grid.get(key).push(newIdx);
+      return newIdx;
+    }
+
+    function addEdge(a, b) {
+      if (a === b) return;
+      var d = haversine(nodes[a].lng, nodes[a].lat, nodes[b].lng, nodes[b].lat);
+      adjacency[a].push({ to: b, weight: d });
+      adjacency[b].push({ to: a, weight: d });
+    }
+
+    function processLine(coords) {
+      var prev = null;
+      for (var i = 0; i < coords.length; i++) {
+        var idx = findOrCreateNode(coords[i][0], coords[i][1]);
+        if (prev !== null) addEdge(prev, idx);
+        prev = idx;
+      }
+    }
+
+    var lineCount = 0;
+    var features = fc.features || [];
+    for (var f = 0; f < features.length; f++) {
+      var geom = features[f] && features[f].geometry;
+      if (!geom) continue;
+      if (geom.type === 'LineString') { processLine(geom.coordinates); lineCount++; }
+      else if (geom.type === 'MultiLineString') {
+        for (var m = 0; m < geom.coordinates.length; m++) processLine(geom.coordinates[m]);
+        lineCount++;
+      }
+    }
+
+    var edgeCount = 0;
+    for (var e = 0; e < adjacency.length; e++) edgeCount += adjacency[e].length;
+    edgeCount /= 2;
+
+    return { nodes: nodes, adjacency: adjacency, lineCount: lineCount, edgeCount: edgeCount };
+  }
+
+  function dijkstra(g, startId, endId) {
+    var n = g.nodes.length;
+    var dist = new Array(n).fill(Infinity);
+    var prev = new Array(n).fill(-1);
+    var visited = new Array(n).fill(false);
+    dist[startId] = 0;
+    var heap = new MinHeap();
+    heap.push({ id: startId, priority: 0 });
+    while (heap.size() > 0) {
+      var top = heap.pop();
+      var id = top.id, priority = top.priority;
+      if (visited[id]) continue;
+      visited[id] = true;
+      if (id === endId) break;
+      if (priority > dist[id]) continue;
+      var edges = g.adjacency[id];
+      for (var i = 0; i < edges.length; i++) {
+        var edge = edges[i];
+        if (visited[edge.to]) continue;
+        var nd = dist[id] + edge.weight;
+        if (nd < dist[edge.to]) {
+          dist[edge.to] = nd;
+          prev[edge.to] = id;
+          heap.push({ id: edge.to, priority: nd });
+        }
+      }
+    }
+    if (dist[endId] === Infinity) return null;
+    var path = [];
+    var cur = endId;
+    while (cur !== -1) { path.push(cur); cur = prev[cur]; }
+    path.reverse();
+    return { path: path, distance: dist[endId] };
+  }
+
+  // ---------- Sample data ----------
+  var SAMPLE_GEOJSON = (function () {
+    var lng0 = 105.8542, lat0 = 21.0285, step = 0.001;
+    function P(i, j) { return [+(lng0 + i * step).toFixed(7), +(lat0 + j * step).toFixed(7)]; }
+    var features = [];
+    for (var j = 0; j <= 3; j++) {
+      features.push({ type: 'Feature', properties: { name: 'Duong ngang ' + (j + 1) },
+        geometry: { type: 'LineString', coordinates: [P(0, j), P(1, j), P(2, j), P(3, j)] } });
+    }
+    for (var i = 0; i <= 3; i++) {
+      features.push({ type: 'Feature', properties: { name: 'Duong doc ' + (i + 1) },
+        geometry: { type: 'LineString', coordinates: [P(i, 0), P(i, 1), P(i, 2), P(i, 3)] } });
+    }
+    features.push({ type: 'Feature', properties: { name: 'Duong tat (cheo)' },
+      geometry: { type: 'LineString', coordinates: [P(0, 0), P(1, 1), P(2, 2), P(3, 3)] } });
+    return { type: 'FeatureCollection', features: features };
+  })();
+
+  // ---------- Data loading ----------
+  function fitView() {
+    if (!graph || graph.nodes.length === 0) return;
+    var minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+    for (var i = 0; i < graph.nodes.length; i++) {
+      var n = graph.nodes[i];
+      if (n.lng < minLng) minLng = n.lng;
+      if (n.lng > maxLng) maxLng = n.lng;
+      if (n.lat < minLat) minLat = n.lat;
+      if (n.lat > maxLat) maxLat = n.lat;
+    }
+    origin = { lng: (minLng + maxLng) / 2, lat: (minLat + maxLat) / 2 };
+    var xMinM = toMeters(minLng, origin.lat)[0];
+    var xMaxM = toMeters(maxLng, origin.lat)[0];
+    var yMinM = toMeters(origin.lng, minLat)[1];
+    var yMaxM = toMeters(origin.lng, maxLat)[1];
+    var rangeX = Math.max(xMaxM - xMinM, 20);
+    var rangeY = Math.max(yMaxM - yMinM, 20);
+    var w = canvas.clientWidth || 800;
+    var h = canvas.clientHeight || 600;
+    var scale = Math.min(w / rangeX, h / rangeY) * 0.85;
+    view = { scale: scale, camX: 0, camY: 0 };
+  }
+
+  function updateStats() {
+    if (!graph) { statsEl.textContent = 'Chua co du lieu.'; return; }
+    statsEl.textContent = graph.nodes.length + ' node · ' + graph.edgeCount + ' canh · ' + graph.lineCount + ' duong';
+  }
+
+  function loadFeatureCollection(fc, sourceLabel) {
+    rawGeoJSON = fc;
+    var tolerance = parseFloat(toleranceInput.value);
+    if (isNaN(tolerance) || tolerance < 0) tolerance = 0;
+    graph = buildGraph(fc, tolerance);
+    startNode = null;
+    endNode = null;
+    pathResult = null;
+    fitView();
+    updateStats();
+    updateResult();
+    render();
+    log('Da nap "' + sourceLabel + '": ' + graph.nodes.length + ' node, ' + graph.edgeCount + ' canh, ' + graph.lineCount + ' duong.');
+    if (graph.nodes.length === 0) log('Khong tim thay doi tuong LineString/MultiLineString nao trong file.');
+  }
+
+  function parseAndLoad(text, sourceLabel) {
+    var json;
+    try { json = JSON.parse(text); }
+    catch (e) { log('Loi: file khong phai JSON hop le.'); return; }
+    var fc = null;
+    if (json && json.type === 'FeatureCollection') fc = json;
+    else if (json && json.type === 'Feature') fc = { type: 'FeatureCollection', features: [json] };
+    else if (json && json.type && json.coordinates) fc = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: json }] };
+    if (!fc) { log('Loi: khong nhan dien duoc cau truc GeoJSON.'); return; }
+    loadFeatureCollection(fc, sourceLabel);
+  }
+
+  fileInput.addEventListener('change', function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () { parseAndLoad(reader.result, file.name); };
+    reader.readAsText(file);
+  });
+
+  dropzone.addEventListener('click', function () { fileInput.click(); });
+  ['dragenter', 'dragover'].forEach(function (evt) {
+    dropzone.addEventListener(evt, function (e) { e.preventDefault(); dropzone.classList.add('drag'); });
+  });
+  ['dragleave', 'drop'].forEach(function (evt) {
+    dropzone.addEventListener(evt, function (e) { e.preventDefault(); dropzone.classList.remove('drag'); });
+  });
+  dropzone.addEventListener('drop', function (e) {
+    var file = e.dataTransfer.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () { parseAndLoad(reader.result, file.name); };
+    reader.readAsText(file);
+  });
+
+  btnRebuild.addEventListener('click', function () {
+    if (!rawGeoJSON) { log('Chua co du lieu de ap dung.'); return; }
+    loadFeatureCollection(rawGeoJSON, 'mang luoi hien tai (ap dung lai nguong gop)');
+  });
+
+  btnSample.addEventListener('click', function () {
+    loadFeatureCollection(SAMPLE_GEOJSON, 'mang luoi mau');
+  });
+
+  // ---------- Pick points & compute route ----------
+  function nearestNode(px, py) {
+    if (!graph) return null;
+    var best = null, bestDist = Infinity;
+    for (var i = 0; i < graph.nodes.length; i++) {
+      var s = toScreen(graph.nodes[i].lng, graph.nodes[i].lat);
+      var d = Math.hypot(s[0] - px, s[1] - py);
+      if (d < bestDist) { bestDist = d; best = i; }
+    }
+    return bestDist <= 16 ? best : null;
+  }
+
+  function setPickMode(mode) {
+    pickMode = pickMode === mode ? null : mode;
+    btnPickStart.classList.toggle('active', pickMode === 'start');
+    btnPickEnd.classList.toggle('active', pickMode === 'end');
+    canvas.style.cursor = pickMode ? 'crosshair' : 'grab';
+  }
+  btnPickStart.addEventListener('click', function () { setPickMode('start'); });
+  btnPickEnd.addEventListener('click', function () { setPickMode('end'); });
+
+  btnClear.addEventListener('click', function () {
+    startNode = null; endNode = null; pathResult = null; pickMode = null;
+    btnPickStart.classList.remove('active'); btnPickEnd.classList.remove('active');
+    canvas.style.cursor = 'grab';
+    updateResult(); render();
+  });
+
+  function computeRoute() {
+    if (startNode === null || endNode === null || !graph) return;
+    var r = dijkstra(graph, startNode, endNode);
+    pathResult = r;
+    if (!r) log('Khong tim thay duong di giua 2 diem da chon (mang luoi khong lien mach).');
+    else log('Duong ngan nhat: ' + r.path.length + ' node, dai ' + (r.distance / 1000).toFixed(3) + ' km.');
+    updateResult();
+  }
+
+  function updateResult() {
+    if (startNode === null || endNode === null) {
+      resultEl.innerHTML = 'Chua chon du 2 diem.';
+      btnDownload.disabled = true;
+      return;
+    }
+    if (!pathResult) {
+      resultEl.innerHTML = 'Khong co duong noi 2 diem nay trong mang luoi.';
+      btnDownload.disabled = true;
+      return;
+    }
+    resultEl.innerHTML =
+      '<div class="big">' + (pathResult.distance / 1000).toFixed(3) + ' km</div>' +
+      '<div>' + Math.round(pathResult.distance) + ' m &middot; ' + pathResult.path.length + ' node di qua</div>';
+    btnDownload.disabled = false;
+  }
+
+  btnDownload.addEventListener('click', function () {
+    if (!pathResult || !graph) return;
+    var coords = pathResult.path.map(function (id) { return [graph.nodes[id].lng, graph.nodes[id].lat]; });
+    var fc = {
+      type: 'FeatureCollection',
+      features: [
+        { type: 'Feature', properties: { name: 'Diem bat dau' },
+          geometry: { type: 'Point', coordinates: [graph.nodes[startNode].lng, graph.nodes[startNode].lat] } },
+        { type: 'Feature', properties: { name: 'Diem ket thuc' },
+          geometry: { type: 'Point', coordinates: [graph.nodes[endNode].lng, graph.nodes[endNode].lat] } },
+        { type: 'Feature',
+          properties: { name: 'Duong ngan nhat', distance_m: Math.round(pathResult.distance), algorithm: 'dijkstra' },
+          geometry: { type: 'LineString', coordinates: coords } },
+      ],
+    };
+    var blob = new Blob([JSON.stringify(fc, null, 2)], { type: 'application/geo+json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'duong-ngan-nhat.geojson';
+    a.click();
+    URL.revokeObjectURL(url);
+    log('Da tai file duong-ngan-nhat.geojson.');
+  });
+
+  function handleClick(e) {
+    if (!graph || graph.nodes.length === 0) return;
+    var rect = canvas.getBoundingClientRect();
+    var px = e.clientX - rect.left, py = e.clientY - rect.top;
+    var idx = nearestNode(px, py);
+    if (idx === null) return;
+    var mode = pickMode;
+    if (!mode) mode = startNode === null ? 'start' : endNode === null ? 'end' : 'start';
+    if (mode === 'start') { startNode = idx; pathResult = null; }
+    else { endNode = idx; pathResult = null; }
+    pickMode = null;
+    btnPickStart.classList.remove('active'); btnPickEnd.classList.remove('active');
+    canvas.style.cursor = 'grab';
+    if (startNode !== null && endNode !== null) computeRoute();
+    updateResult();
+    render();
+  }
+
+  // ---------- Canvas render ----------
+  function resizeCanvas() {
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    render();
+  }
+
+  function isDarkMode() {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  function render() {
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    var dark = isDarkMode();
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = dark ? '#17181c' : '#f7f7f8';
+    ctx.fillRect(0, 0, w, h);
+
+    if (!graph || graph.nodes.length === 0) {
+      ctx.fillStyle = dark ? '#9a9aa5' : '#6b6b76';
+      ctx.font = '13px sans-serif';
+      ctx.fillText('Chua co mang luoi duong. Hay nap file GeoJSON hoac dung mang luoi mau.', 20, 24);
+      return;
+    }
+
+    ctx.strokeStyle = dark ? '#4b4c55' : '#c7c7d1';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (var a = 0; a < graph.adjacency.length; a++) {
+      var list = graph.adjacency[a];
+      for (var i = 0; i < list.length; i++) {
+        var edge = list[i];
+        if (edge.to <= a) continue;
+        var p1 = toScreen(graph.nodes[a].lng, graph.nodes[a].lat);
+        var p2 = toScreen(graph.nodes[edge.to].lng, graph.nodes[edge.to].lat);
+        ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]);
+      }
+    }
+    ctx.stroke();
+
+    if (pathResult) {
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (var k = 0; k < pathResult.path.length; k++) {
+        var node = graph.nodes[pathResult.path[k]];
+        var pt = toScreen(node.lng, node.lat);
+        if (k === 0) ctx.moveTo(pt[0], pt[1]); else ctx.lineTo(pt[0], pt[1]);
+      }
+      ctx.stroke();
+    }
+
+    for (var n = 0; n < graph.nodes.length; n++) {
+      var sp = toScreen(graph.nodes[n].lng, graph.nodes[n].lat);
+      ctx.beginPath();
+      ctx.arc(sp[0], sp[1], 3, 0, Math.PI * 2);
+      ctx.fillStyle = dark ? '#6b6c76' : '#9a9aa5';
+      ctx.fill();
+    }
+    if (startNode !== null) {
+      var sSt = toScreen(graph.nodes[startNode].lng, graph.nodes[startNode].lat);
+      ctx.beginPath(); ctx.arc(sSt[0], sSt[1], 7, 0, Math.PI * 2);
+      ctx.fillStyle = '#16a34a'; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    if (endNode !== null) {
+      var sEn = toScreen(graph.nodes[endNode].lng, graph.nodes[endNode].lat);
+      ctx.beginPath(); ctx.arc(sEn[0], sEn[1], 7, 0, Math.PI * 2);
+      ctx.fillStyle = '#dc2626'; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+  }
+
+  // ---------- Pan & zoom ----------
+  canvas.addEventListener('mousedown', function (e) {
+    isPanning = true; panMoved = false;
+    lastMouse = { x: e.clientX, y: e.clientY };
+    canvas.classList.add('grabbing');
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (!isPanning) return;
+    var dx = e.clientX - lastMouse.x, dy = e.clientY - lastMouse.y;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) panMoved = true;
+    if (panMoved) {
+      view.camX -= dx / view.scale;
+      view.camY += dy / view.scale;
+      lastMouse = { x: e.clientX, y: e.clientY };
+      render();
+    }
+  });
+  window.addEventListener('mouseup', function (e) {
+    if (isPanning && !panMoved && e.target === canvas) handleClick(e);
+    isPanning = false;
+    canvas.classList.remove('grabbing');
+  });
+
+  canvas.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var rect = canvas.getBoundingClientRect();
+    var px = e.clientX - rect.left, py = e.clientY - rect.top;
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    var worldX = view.camX + (px - w / 2) / view.scale;
+    var worldY = view.camY - (py - h / 2) / view.scale;
+    var factor = Math.exp(-e.deltaY * 0.001);
+    view.scale = Math.min(Math.max(view.scale * factor, 0.001), 500);
+    view.camX = worldX - (px - w / 2) / view.scale;
+    view.camY = worldY + (py - h / 2) / view.scale;
+    render();
+  }, { passive: false });
+
+  window.addEventListener('resize', resizeCanvas);
+  if (window.ResizeObserver) new ResizeObserver(resizeCanvas).observe(canvas);
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+  }
+
+  resizeCanvas();
+  log('San sang. Hay nap mang luoi duong hoac dung mang luoi mau.');
+})();
+</script>
+</body>
+</html>

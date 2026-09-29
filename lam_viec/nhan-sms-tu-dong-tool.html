@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nhan SMS tu dong + Xem tren ban do</title>
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f8;
+    --panel-bg: #ffffff;
+    --card-bg: #fcfcfd;
+    --border: #dfe0e6;
+    --text: #1a1a1f;
+    --muted: #6b6b76;
+    --accent: #2563eb;
+    --accent-2: #16a34a;
+    --danger: #dc2626;
+    --shadow: 0 1px 2px rgba(15, 15, 20, .05);
+    --console-bg: #17181d;
+    --console-text: #d7d9e0;
+    --gmaps: #ea4335;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181c;
+      --panel-bg: #1f2025;
+      --card-bg: #232429;
+      --border: #34353c;
+      --text: #ececf0;
+      --muted: #9a9aa5;
+      --shadow: none;
+      --console-bg: #101114;
+      --console-text: #c9cbd3;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
+  #app { display: flex; height: 100vh; }
+  #panel { width: 380px; min-width: 320px; background: var(--panel-bg); border-right: 1px solid var(--border); padding: 18px; overflow-y: auto; display: flex; flex-direction: column; }
+
+  @media (max-width: 480px) {
+    #app { flex-direction: column; }
+    #panel { width: 100%; min-width: 0; max-height: 62vh; border-right: none; border-bottom: 1px solid var(--border); padding: 12px; }
+    main { min-height: 38vh; }
+  }
+
+  #brandHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  #brandMark { width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; }
+  #brandHeader h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  #brandHeader p.sub { color: var(--muted); font-size: 11.5px; margin: 2px 0 0; }
+
+  section { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  section:last-child { margin-bottom: 0; }
+  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .card-head > svg { color: var(--accent); flex-shrink: 0; }
+  .card-head h2 { flex: 1; margin: 0; font-size: 13px; font-weight: 700; color: var(--text); }
+  section p.note { color: var(--muted); font-size: 11.5px; margin: 8px 0 0; line-height: 1.5; }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; white-space: nowrap; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); }
+
+  button { font: inherit; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border); background: var(--panel-bg); color: var(--text); cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease, opacity .12s ease; }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.ghost { background: transparent; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .icon { width: 18px; height: 18px; }
+  .icon-sm { width: 14px; height: 14px; flex-shrink: 0; }
+
+  #devicesSection { flex: 1; min-height: 220px; display: flex; flex-direction: column; }
+  #devList { flex: 1; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+  .dev-row { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .dev-row:last-child { border-bottom: none; }
+  .dev-row:hover { background: var(--panel-bg); }
+  .dev-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px var(--bg); }
+  .dev-info { flex: 1; min-width: 0; }
+  .dev-name { font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dev-meta { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+  #devEmpty { padding: 18px 10px; text-align: center; color: var(--muted); font-size: 11.5px; line-height: 1.6; }
+
+  #log { background: var(--console-bg); color: var(--console-text); border-radius: 8px; padding: 10px 11px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 11px; line-height: 1.7; white-space: pre-wrap; max-height: 130px; overflow-y: auto; }
+
+  main { flex: 1; position: relative; }
+  #map { width: 100%; height: 100%; }
+  .device-marker { background: transparent; border: none; }
+  .device-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+
+  #pointPanel {
+    position: absolute; top: 14px; right: 14px; width: 250px; max-width: calc(100% - 28px);
+    background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.18); z-index: 1000;
+  }
+  #pointPanel.hidden { display: none; }
+  #pointPanel .pp-close { position: absolute; top: 6px; right: 6px; background: transparent; border: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 6px; }
+  #pointPanel .pp-close:hover { color: var(--text); }
+  #pointPanel h3 { margin: 0 22px 10px 0; font-size: 13.5px; font-weight: 700; color: var(--text); word-break: break-word; }
+  #pointPanel .pp-row { margin-top: 8px; }
+  #pointPanel .pp-row .pp-label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 2px; }
+  #pointPanel .pp-row .pp-value { display: block; font-size: 12.5px; color: var(--text); word-break: break-word; }
+
+  #destPanel {
+    position: absolute; top: 14px; right: 14px; width: 250px; max-width: calc(100% - 28px);
+    background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.18); z-index: 1000;
+  }
+  #destPanel.hidden { display: none; }
+  #destPanel .pp-close { position: absolute; top: 6px; right: 6px; background: transparent; border: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 6px; }
+  #destPanel .pp-close:hover { color: var(--text); }
+  #destPanel h3 { margin: 0 22px 10px 0; font-size: 13.5px; font-weight: 700; color: var(--text); word-break: break-word; }
+  #destPanel p.pp-hint { color: var(--muted); font-size: 11px; margin: 0 0 10px; line-height: 1.5; }
+  #destPanel input[type=text] { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 12.5px; margin-bottom: 10px; }
+  #destPanel input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <header id="brandHeader">
+      <div id="brandMark">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16v12H5.17L4 17.17V4z"></path>
+        </svg>
+      </div>
+      <div>
+        <h1>Nhan SMS tu dong</h1>
+        <p class="sub">Tu dong nhan toa do tu ESP32 (USB) hoac dien thoai (ADB) - hoan toan offline</p>
+      </div>
+    </header>
+
+    <a id="linkDeviceInfo" href="/thong-tin-thiet-bi-tool.html" target="_blank" rel="noopener" style="display:block; margin-bottom:12px; text-decoration:none">
+      <button type="button" class="ghost" style="width:100%">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+        Thong tin thiet bi
+      </button>
+    </a>
+
+    <section id="devicesSection">
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle>
+        </svg>
+        <h2>Thiet bi da nhan</h2>
+        <span id="countPill" class="pill">0</span>
+      </div>
+      <div id="devList"><div id="devEmpty">Chua nhan duoc toa do nao.</div></div>
+      <button id="btnDownload" class="primary" disabled style="width:100%; margin-top:10px">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Tai GeoJSON (vi tri moi nhat)
+      </button>
+    </section>
+
+    <section>
+      <div class="card-head">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line>
+          <line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>
+        </svg>
+        <h2>Nhat Ky</h2>
+      </div>
+      <div id="log">San sang. Cho SMS tu dong.</div>
+    </section>
+  </aside>
+  <main>
+    <div id="map"></div>
+    <aside id="pointPanel" class="hidden">
+      <button id="pointPanelClose" class="pp-close" title="Dong" aria-label="Dong">&times;</button>
+      <h3 id="pointPanelName"></h3>
+      <div class="pp-row" id="pointPanelTimeRow">
+        <span class="pp-label" id="pointPanelTimeLabel">Thoi gian di qua</span>
+        <span class="pp-value" id="pointPanelTime"></span>
+      </div>
+      <div class="pp-row" id="pointPanelDistanceRow">
+        <span class="pp-label">Quang duong</span>
+        <span class="pp-value" id="pointPanelDistance"></span>
+      </div>
+      <div class="pp-row" id="pointPanelPlaceRow">
+        <span class="pp-label">Gan</span>
+        <span class="pp-value" id="pointPanelPlace"></span>
+      </div>
+      <div class="pp-row">
+        <span class="pp-label">Toa do</span>
+        <span class="pp-value" id="pointPanelCoord"></span>
+      </div>
+      <div class="pp-row" style="margin-top:12px">
+        <button id="pointPanelAction" class="primary" style="width:100%"></button>
+      </div>
+    </aside>
+    <aside id="destPanel" class="hidden">
+      <button id="destPanelClose" class="pp-close" title="Huy" aria-label="Huy">&times;</button>
+      <h3>Chon diem den</h3>
+      <p class="pp-hint">Bam vao ban do, hoac nhap ten noi den:</p>
+      <input type="text" id="destInput" placeholder="Vd: cho han, san bay..." />
+      <button id="destSearchBtn" class="primary" style="width:100%">Tim duong</button>
+    </aside>
+  </main>
+</div>
+
+<script src="/vendor/leaflet/leaflet.js"></script>
+<script>
+// Polyfill AbortSignal.prototype.throwIfAborted (API moi ~2022) - thieu tren
+// trinh duyet cu (vd Edge doi Windows 10 IoT Enterprise chua cap nhat), lam
+// pmtiles.js loi "throwIfAborted is not a function" va ban do bi trang.
+if (typeof AbortSignal !== 'undefined' && !AbortSignal.prototype.throwIfAborted) {
+  AbortSignal.prototype.throwIfAborted = function () {
+    if (this.aborted) {
+      throw (this.reason !== undefined ? this.reason : new DOMException('signal is aborted without reason', 'AbortError'));
+    }
+  };
+}
+</script>
+<script src="/vendor/pmtiles/pmtiles.js"></script>
+<script src="/vendor/protomaps-leaflet/protomaps-leaflet.js"></script>
+<script src="/vendor/polylinedecorator/leaflet.polylineDecorator.js"></script>
+<script src="/da-nang-pmtiles-data.js"></script>
+<script src="/da-nang-places-data.js"></script>
+<script src="/da-nang-roads-data.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var POLL_MS = 6000; // giai ra tu 3000 de bot tai CPU cho may Wyse yeu - thiet bi gui SMS moi 5 phut/lan nen khong can poll qua sat
+
+  // ---------- DOM ----------
+  var countPillEl = document.getElementById('countPill');
+  var devListEl = document.getElementById('devList');
+  var devEmptyEl = document.getElementById('devEmpty');
+  var btnDownload = document.getElementById('btnDownload');
+  var logEl = document.getElementById('log');
+  var pointPanelEl = document.getElementById('pointPanel');
+  var pointPanelNameEl = document.getElementById('pointPanelName');
+  var pointPanelTimeEl = document.getElementById('pointPanelTime');
+  var pointPanelTimeRowEl = document.getElementById('pointPanelTimeRow');
+  var pointPanelDistanceRowEl = document.getElementById('pointPanelDistanceRow');
+  var pointPanelDistanceEl = document.getElementById('pointPanelDistance');
+  var pointPanelPlaceRowEl = document.getElementById('pointPanelPlaceRow');
+  var pointPanelPlaceEl = document.getElementById('pointPanelPlace');
+  var pointPanelCoordEl = document.getElementById('pointPanelCoord');
+  var pointPanelCloseBtn = document.getElementById('pointPanelClose');
+  var pointPanelTimeLabelEl = document.getElementById('pointPanelTimeLabel');
+  var pointPanelActionBtn = document.getElementById('pointPanelAction');
+  var destPanelEl = document.getElementById('destPanel');
+  var destPanelCloseBtn = document.getElementById('destPanelClose');
+  var destInputEl = document.getElementById('destInput');
+  var destSearchBtn = document.getElementById('destSearchBtn');
+
+  var LOG_MAX_LINES = 50; // gioi han so dong - trang chay lien tuc nhieu gio/ngay tren may Wyse, khong de log phinh vo han
+  var logLines = [];
+  function log(msg) {
+    var time = new Date().toLocaleTimeString();
+    logLines.unshift('[' + time + '] ' + msg);
+    if (logLines.length > LOG_MAX_LINES) logLines.length = LOG_MAX_LINES;
+    logEl.textContent = logLines.join('\n');
+  }
+
+  // ---------- Ban do offline (nhung san du lieu, giong doc-toa-do-sms-tool.html
+  // - xem giai thich chi tiet trong file do va trong CLAUDE.md. Trang nay tuy
+  // duoc server phuc vu (khong phai file://) nhung dung lai cach nhung san
+  // cho don gian, khong can cai them Range serving trong
+  // nhan-sms-tu-dong-server.js) ----------
+  function base64ToArrayBuffer(base64) {
+    var binary = atob(base64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+  function ArrayBufferSource(buf) { this.buf = buf; }
+  ArrayBufferSource.prototype.getKey = function () { return 'da-nang.pmtiles'; };
+  ArrayBufferSource.prototype.getBytes = function (offset, length) {
+    return Promise.resolve({ data: this.buf.slice(offset, offset + length) });
+  };
+  var pmtilesArchive = new pmtiles.PMTiles(new ArrayBufferSource(base64ToArrayBuffer(window.__DA_NANG_PMTILES_BASE64)));
+
+  // (2026-09-11) Gioi han han vung keo/zoom dung bang bbox da dung de cat du
+  // lieu (105.2,12.7,109.1,18.15 - xem CLAUDE.md) - truoc day khong gioi han
+  // gi, keo ra ngoai vung nay ban do trong hoan toan (khong co tile nao ca,
+  // dung "chua tai" hay "loi" gi, chi la khong co du lieu that o do) va
+  // trinh duyet/thu vien van co gang xu ly cac tile rong do moi lan keo qua.
+  // maxBoundsViscosity:1 lam bien cung han (keo qua bi chan lai ngay, khong
+  // ruy bang roi bat lai nhu mac dinh 0) - dung y muon "khong mo sang ben
+  // kia" cua user.
+  var DATA_BOUNDS = [[12.7, 105.2], [18.15, 109.1]];
+  var map = L.map('map', { maxZoom: 19, maxBounds: DATA_BOUNDS, maxBoundsViscosity: 1.0 }).setView([16.047, 108.220], 12);
+  protomapsL.leafletLayer({
+    url: pmtilesArchive,
+    flavor: 'light',
+    lang: 'vi',
+    // maxDataZoom mac dinh cua thu vien la 15 neu khong khai bao - file
+    // .pmtiles nhung o day (mo rong vung 2026-09-10) chi cat toi z12 de giu
+    // dung luong nhung duoc, nen PHAI khai bao dung 12, neu khong thu vien
+    // se tuong data co toi z15 va co tai cac tile z13-16 KHONG TON TAI trong
+    // file -> tile rong -> hien xam khi phong to qua z12 (loi da gap, sua
+    // 2026-09-11). Sau z12 thu vien tu phong to lai tile z12 (overzoom),
+    // net hon la mat han noi dung.
+    maxDataZoom: 12,
+    // Ve tile vector (giai ma + ve canvas) ton CPU hon han tile anh tinh, va
+    // vung du lieu gio lon hon nhieu sau dot mo rong 2026-09-10 - mac dinh
+    // Leaflet tren desktop tai/ve lai tile LIEN TUC trong luc dang keo/zoom
+    // (updateWhenIdle mac dinh false tren desktop, updateWhenZooming mac
+    // dinh true), gay giat/lag ro trong luc thao tac. 2 dong duoi doi sang
+    // chi tai/ve tile MOI sau khi dung keo/zoom han - trong luc dang thao
+    // tac chi dung tile da co san (phong to/thu nho bang bien doi CSS tam
+    // thoi), dung dung y user yeu cau "chi tai cai dang co, dung tai cai
+    // chua tai" (2026-09-11).
+    updateWhenIdle: true,
+    updateWhenZooming: false,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://protomaps.com">Protomaps</a>'
+  }).addTo(map);
+
+  // ---------- Bang thong tin 1 diem tren duong di (an mac dinh, chi hien khi
+  // bam vao duong) ----------
+  function formatDateTime(ts) {
+    var d = new Date(ts);
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+    return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
+  function showPointPanel(dev, point) {
+    pointPanelNameEl.textContent = dev.name;
+    pointPanelTimeRowEl.style.display = '';
+    pointPanelTimeLabelEl.textContent = 'Thoi gian di qua';
+    pointPanelTimeEl.textContent = formatDateTime(point.ts);
+    pointPanelDistanceRowEl.style.display = 'none';
+    var placeName = findNearestPlace(point.lat, point.lon);
+    pointPanelPlaceRowEl.style.display = placeName ? '' : 'none';
+    pointPanelPlaceEl.textContent = placeName || '';
+    pointPanelCoordEl.textContent = point.lat.toFixed(6) + ', ' + point.lon.toFixed(6);
+    pointPanelActionBtn.textContent = 'Chi duong tu diem nay';
+    pointPanelActionBtn.onclick = function () { armRoutePicking({ lat: point.lat, lon: point.lon }, dev.id); };
+    pointPanelEl.classList.remove('hidden');
+  }
+  // Bang thong tin cho 1 diem BAT KY tren ban do (khong gan voi thiet bi
+  // nao) - cho phep chi duong tu bat ky dau bam vao, khong bat buoc phai la
+  // marker/diem lich su cua 1 thiet bi nhu truoc. Khong co "thoi gian di
+  // qua" (diem nay khong phai vi tri thiet bi tung bao ve) nen an han rieng
+  // do; ten hien o tieu de (giong showRoutePanel) thay vi tach rieng dong
+  // "Gan" vi day chinh la thong tin duy nhat co ve diem nay.
+  function showMapPointPanel(lat, lon) {
+    var placeName = findNearestPlace(lat, lon);
+    pointPanelNameEl.textContent = placeName || 'Diem da chon tren ban do';
+    pointPanelTimeRowEl.style.display = 'none';
+    pointPanelDistanceRowEl.style.display = 'none';
+    pointPanelPlaceRowEl.style.display = 'none';
+    pointPanelCoordEl.textContent = lat.toFixed(6) + ', ' + lon.toFixed(6);
+    pointPanelActionBtn.textContent = 'Chi duong tu diem nay';
+    pointPanelActionBtn.onclick = function () { armRoutePicking({ lat: lat, lon: lon }, null); };
+    pointPanelEl.classList.remove('hidden');
+  }
+  function hidePointPanel() {
+    pointPanelEl.classList.add('hidden');
+  }
+  pointPanelCloseBtn.addEventListener('click', hidePointPanel);
+
+  // ---------- Dinh tuyen (Dijkstra tren mang luoi duong Da Nang - giong
+  // "app giao hang", bam 1 diem lam noi bat dau roi bam 1 diem tren ban do
+  // lam noi den, tu ve duong di toi uu theo dung mang luoi duong that thay
+  // vi ke thang) ----------
+  // Thuat toan buildRoadGraph/dijkstra/MinHeap port tu shortest-path-tool.html
+  // (cung thu muc lam_viec/) - o do da co san, chi sua lai de dung thang
+  // lat/lon (thay vi toa do GeoJSON [lng,lat]) va tai su dung
+  // haversineMeters() da co san o file nay. Du lieu mang luoi duong
+  // (window.__DA_NANG_ROADS trong da-nang-roads-data.js) lay tu OpenStreetMap
+  // qua Overpass API, cung vung/nguon voi da-nang-places-data.js - xem
+  // lam_viec/CLAUDE.md de biet cach tao lai.
+  // Toc do gia dinh THEO LOAI DUONG (giong cach Google Maps/Grab uoc luong
+  // thoi gian di chuyen tu loai duong khi khong co du lieu giao thong thuc
+  // te theo thoi gian thuc) - chi so khop voi window.__DA_NANG_ROADS_CLASS
+  // (1 so nguyen/duong trong da-nang-roads-data.js, gan san luc build tu tag
+  // "highway" cua OpenStreetMap). Van la UOC LUONG (xe may/o to trong pho
+  // VN), khong phai gioi han toc do phap ly hay du lieu ket xe thuc te.
+  var ROUTE_CLASS_SPEED_KMH = [
+    50, // 0: motorway/trunk (+ lien ket)
+    40, // 1: primary
+    35, // 2: secondary
+    30, // 3: tertiary/unclassified (mac dinh neu khong ro loai)
+    22, // 4: residential/living_street (duong dan cu, ngo nho)
+    15  // 5: service (duong noi bo, loi vao)
+  ];
+  var ROUTE_DEFAULT_CLASS = 3;
+
+  function MinHeap() { this.data = []; }
+  MinHeap.prototype.size = function () { return this.data.length; };
+  MinHeap.prototype.push = function (item) {
+    this.data.push(item);
+    var i = this.data.length - 1;
+    while (i > 0) {
+      var p = (i - 1) >> 1;
+      if (this.data[p].priority <= this.data[i].priority) break;
+      var tmp = this.data[p]; this.data[p] = this.data[i]; this.data[i] = tmp;
+      i = p;
+    }
+  };
+  MinHeap.prototype.pop = function () {
+    var top = this.data[0];
+    var last = this.data.pop();
+    if (this.data.length > 0) {
+      this.data[0] = last;
+      var i = 0, n = this.data.length;
+      while (true) {
+        var smallest = i, l = 2 * i + 1, r = 2 * i + 2;
+        if (l < n && this.data[l].priority < this.data[smallest].priority) smallest = l;
+        if (r < n && this.data[r].priority < this.data[smallest].priority) smallest = r;
+        if (smallest === i) break;
+        var tmp = this.data[smallest]; this.data[smallest] = this.data[i]; this.data[i] = tmp;
+        i = smallest;
+      }
+    }
+    return top;
+  };
+
+  // (2026-09-11) Ban async cua buildRoadGraph() cu - dung y het cac ham con
+  // giong het (findOrCreateNode/addEdge/registerSegment/addToCell/
+  // cellKeyFor), chi khac o vong lap NGOAI CUNG duoc chia thanh tung lot nho
+  // (BATCH_SIZE duong/lot), nhuong lai luong chinh giua cac lot bang
+  // setTimeout(fn,0) thay vi chay 1 mach ~378 nghin duong lien tuc. Ly do:
+  // ban dong bo cu chan hoan toan luong chinh 8-54 giay (do khi test bang
+  // Node) moi lan tai trang - toan bo trang (keo/zoom ban do, bam nut...)
+  // dung hinh suot khoang do, nang nhat tren may yeu nhu Wyse 5070. Ket qua
+  // cuoi (graph tra ve qua onDone) giong het ban dong bo - khong doi logic
+  // dung/gop node/dang ky doan duong nao ca, chi doi CACH chay vong lap
+  // ngoai. onProgress (co the null) duoc goi sau moi lot, nhan (soDaXong,
+  // tongSo) - hien khong dung de ve UI gi, chi de danh san neu can sau nay.
+  function buildRoadGraphAsync(ways, wayClasses, wayOneway, snapToleranceM, onProgress, onDone) {
+    var nodes = [];
+    var adjacency = [];
+    var cellSizeDeg = 0.001;
+    var grid = new Map();
+    // Luoi rieng cho tung DOAN duong (segment a-b, khac grid o tren la luoi
+    // theo TUNG DINH) - dung de map-matching (snapToRoad(), xem duoi) tim
+    // nhanh doan duong gan 1 toa do GPS bat ky ma khong phai quet toan bo
+    // ~2.1 trieu doan cua ca vung. Dung chung cellSizeDeg (111m) va duoc dien
+    // ngay trong vong lap duy nhat da co san (khong quet lai rieng).
+    var segGrid = new Map();
+    function cellKeyFor(cx, cy) { return cx + ',' + cy; }
+    function registerSegment(aIdx, bIdx) {
+      var a = nodes[aIdx], b = nodes[bIdx];
+      var cxa = Math.floor(a.lat / cellSizeDeg), cya = Math.floor(a.lon / cellSizeDeg);
+      var cxb = Math.floor(b.lat / cellSizeDeg), cyb = Math.floor(b.lon / cellSizeDeg);
+      var minCx = Math.min(cxa, cxb), maxCx = Math.max(cxa, cxb);
+      var minCy = Math.min(cya, cyb), maxCy = Math.max(cya, cyb);
+      // Doan qua dai (hiem - vd 1 doan cao toc gan nhu thang tap sau khi rut
+      // gon Douglas-Peucker) chi dang ky o 2 dau mut, tranh "no" so o dang ky
+      // (vd 1 doan dai 5km cheo qua hang nghin o 111m x 111m).
+      if ((maxCx - minCx) > 8 || (maxCy - minCy) > 8) {
+        addToCell(cxa, cya, aIdx, bIdx);
+        addToCell(cxb, cyb, aIdx, bIdx);
+        return;
+      }
+      for (var cx = minCx; cx <= maxCx; cx++) {
+        for (var cy = minCy; cy <= maxCy; cy++) addToCell(cx, cy, aIdx, bIdx);
+      }
+    }
+    function addToCell(cx, cy, aIdx, bIdx) {
+      var key = cellKeyFor(cx, cy);
+      if (!segGrid.has(key)) segGrid.set(key, []);
+      segGrid.get(key).push([aIdx, bIdx]);
+    }
+    function findOrCreateNode(lat, lon) {
+      var cx = Math.floor(lat / cellSizeDeg);
+      var cy = Math.floor(lon / cellSizeDeg);
+      for (var dx = -1; dx <= 1; dx++) {
+        for (var dy = -1; dy <= 1; dy++) {
+          var bucket = grid.get(cellKeyFor(cx + dx, cy + dy));
+          if (!bucket) continue;
+          for (var k = 0; k < bucket.length; k++) {
+            var idx = bucket[k];
+            var n = nodes[idx];
+            if (haversineMeters(lat, lon, n.lat, n.lon) <= snapToleranceM) return idx;
+          }
+        }
+      }
+      var newIdx = nodes.length;
+      nodes.push({ lat: lat, lon: lon });
+      adjacency.push([]);
+      var key = cellKeyFor(cx, cy);
+      if (!grid.has(key)) grid.set(key, []);
+      grid.get(key).push(newIdx);
+      return newIdx;
+    }
+    // weight = thoi gian (giay), khong phai khoang cach - de Dijkstra tim
+    // duong NHANH nhat (uu tien duong lon toc do cao khi co loi) thay vi chi
+    // NGAN nhat, dung tinh than "toi uu" cua app dinh vi/giao hang that.
+    // distance (met) van giu rieng de hien km + tinh lai ETA chinh xac khi
+    // di doc qua tung doan trong computeRoute(). dir: 1 = chi them canh
+    // a->b (mot chieu, dung thu tu diem trong way), -1 = chi them canh
+    // b->a (nguoc), 0 = them ca 2 chieu (mac dinh, 2 lan hoac khong gan
+    // the oneway) - xem giai thich __DA_NANG_ROADS_ONEWAY trong
+    // da-nang-roads-data.js. Day chinh la phan tuan thu duong 1 chieu/lam
+    // phan cach (vd Dien Bien Phu tach thanh 2 way oneway rieng trong OSM,
+    // moi way la 1 chieu xe chay - khong ton trong dir se coi ca 2 lan la
+    // di duoc 2 chieu, dan toi chi duong sai ben, nguoc luat giao thong VN).
+    function addEdge(a, b, speedMps, dir) {
+      if (a === b) return;
+      var d = haversineMeters(nodes[a].lat, nodes[a].lon, nodes[b].lat, nodes[b].lon);
+      var t = d / speedMps;
+      if (dir >= 0) adjacency[a].push({ to: b, weight: t, distance: d });
+      if (dir <= 0) adjacency[b].push({ to: a, weight: t, distance: d });
+    }
+    var BATCH_SIZE = 500; // ~du nho de 1 lot chay duoi ~100ms ke ca tren may cham, giu giao dien muot; ~378 nghin duong / 500 ~ 756 lot
+    var w = 0;
+    function processBatch() {
+      var end = Math.min(w + BATCH_SIZE, ways.length);
+      for (; w < end; w++) {
+        var pts = ways[w];
+        var classIdx = (wayClasses && wayClasses[w] !== undefined) ? wayClasses[w] : ROUTE_DEFAULT_CLASS;
+        var speedKmh = ROUTE_CLASS_SPEED_KMH[classIdx] || ROUTE_CLASS_SPEED_KMH[ROUTE_DEFAULT_CLASS];
+        var speedMps = speedKmh * 1000 / 3600;
+        var dir = (wayOneway && wayOneway[w] !== undefined) ? wayOneway[w] : 0;
+        var prev = null;
+        for (var i = 0; i < pts.length; i++) {
+          var idx = findOrCreateNode(pts[i][0], pts[i][1]);
+          if (prev !== null) { addEdge(prev, idx, speedMps, dir); registerSegment(prev, idx); }
+          prev = idx;
+        }
+      }
+      if (onProgress) onProgress(w, ways.length);
+      if (w < ways.length) {
+        setTimeout(processBatch, 0);
+      } else {
+        // nodeGrid (luoi theo tung DINH, dung de gop node cach nhau
+        // <=snapToleranceM) duoc tra ra kem segGrid - can cho nearestGraphNode()
+        // tim node gan 1 toa do bang luoi thay vi quet tuyen tinh toan bo
+        // (xem sua doi 2026-09-11 ngay duoi).
+        onDone({ nodes: nodes, adjacency: adjacency, segGrid: segGrid, nodeGrid: grid, cellSizeDeg: cellSizeDeg });
+      }
+    }
+    processBatch();
+  }
+
+  // Map-matching: keo 1 toa do GPS (thuong bi nhieu vai-vai chuc met do
+  // multipath/do chinh xac module GPS) ve DIEM GAN NHAT tren mang luoi
+  // duong, thay vi ve thang toa do tho - sua dung trieu chung "nhin nhu di
+  // ven duong" thay vi "di tren duong" ma user nhan thay. Chi lam voi diem
+  // that su o GAN 1 doan duong da co du lieu (trong maxDistM) - vuot qua
+  // nguong thi coi la vi tri that su ngoai duong (san, bai do xe, hoac ngoai
+  // vung phu du lieu) va GIU NGUYEN toa do tho, tranh keo nham 1 vi tri thuc
+  // su khong o tren duong nao vao 1 doan duong gan do.
+  var SNAP_TO_ROAD_MAX_M = 30; // uoc luong do nhieu GPS thuong gap (module gia re, nha cao tang/tan cay che khuat...), khong phai gioi han chinh xac tuyet doi
+  function snapToRoad(lat, lon, maxDistM) {
+    if (!roadGraph || !roadGraph.segGrid || !roadGraph.segGrid.size) return null;
+    var cellSizeDeg = roadGraph.cellSizeDeg;
+    var cx = Math.floor(lat / cellSizeDeg), cy = Math.floor(lon / cellSizeDeg);
+    var metersPerDegLat = 111320;
+    var metersPerDegLon = 111320 * Math.cos(lat * Math.PI / 180);
+    var best = null, bestDist = Infinity;
+    for (var dx = -1; dx <= 1; dx++) {
+      for (var dy = -1; dy <= 1; dy++) {
+        var bucket = roadGraph.segGrid.get((cx + dx) + ',' + (cy + dy));
+        if (!bucket) continue;
+        for (var k = 0; k < bucket.length; k++) {
+          var a = roadGraph.nodes[bucket[k][0]], b = roadGraph.nodes[bucket[k][1]];
+          // Quy ve mat phang xap xi (met) quanh diem a lam goc, roi chieu
+          // (lat,lon) vuong goc len doan a-b - chinh xac du dung cho khoang
+          // cach vai chuc met nay (khong can phep chieu ban do day du).
+          var bx = (b.lon - a.lon) * metersPerDegLon, by = (b.lat - a.lat) * metersPerDegLat;
+          var px = (lon - a.lon) * metersPerDegLon, py = (lat - a.lat) * metersPerDegLat;
+          var segLenSq = bx * bx + by * by;
+          var t = segLenSq > 0 ? (px * bx + py * by) / segLenSq : 0;
+          if (t < 0) t = 0; else if (t > 1) t = 1;
+          var projX = t * bx, projY = t * by;
+          var ddx = px - projX, ddy = py - projY;
+          var distM = Math.sqrt(ddx * ddx + ddy * ddy);
+          if (distM < bestDist) {
+            bestDist = distM;
+            best = { lat: a.lat + projY / metersPerDegLat, lon: a.lon + projX / metersPerDegLon, dist: distM };
+          }
+        }
+      }
+    }
+    return (best && best.dist <= maxDistM) ? best : null;
+  }
+
+  // Toc do nhanh nhat co trong bang (hang 0, motorway/trunk) - dung lam
+  // "gioi han tren" cho A*: uoc luong thoi gian con lai toi dich theo duong
+  // chim bay chia toc do NHANH NHAT co the, nen KHONG BAO GIO vuot qua thoi
+  // gian that (dieu kien "admissible") - A* voi heuristic kieu nay van dam
+  // bao tim dung duong NHANH NHAT y het Dijkstra thuan, chi khac o thu tu
+  // duyet giup huong thang ve dich thay vi lan toa deu moi huong.
+  var MAX_ROUTE_SPEED_MPS = Math.max.apply(null, ROUTE_CLASS_SPEED_KMH) * 1000 / 3600;
+
+  // (2026-09-12) LICH SU day du (giu lai vi la bai hoc that, tranh lap lai -
+  // xem lam_viec/CLAUDE.md de biet chi tiet tung buoc/so lieu do duoc):
+  // (1) Dijkstra thuan ban dau. (2) A* mot chieu (heuristic huong ve dich) -
+  // nhanh hon han cho tuyen gan/vua (~70-95km: 3-10 lan) nhung tuyen CUC DAI
+  // xuyen het vung (~595km) chi xap xi Dijkstra thuan, khong nhanh hon ro
+  // ret. (3) Thu Dijkstra 2 CHIEU (khong heuristic, tim tu ca 2 dau gap
+  // nhau o giua) - DUNG 100% nhung KHONG nhanh hon, co luc con cham hon
+  // 36-49%, vi mang luoi duong THAT co trong so canh khong dong deu (toc do
+  // khac nhau theo loai duong) pha vo gia dinh "vong tron ban kinh deu" ma
+  // loi ich ly thuyet cua tim 2 chieu dua vao. (4) Thu ket hop CA HAI - A*
+  // 2 chieu, dung "potential doi xung" (Ikeda et al. 1994; Goldberg &
+  // Harrelson 2005: pf(v)=(hf(v)-hb(v))/2, pb(v)=-pf(v), dam bao van tim
+  // dung toi uu tuyet doi) voi hy vong "la ban" huong ve nhau cua heuristic
+  // sua duoc nguyen nhan that bai cua (3) - VAN DUNG 100% (kiem chung ky
+  // bang Node) nhung CANG CHAM HON NUA (0.3-0.5x, te hon ca (3) rieng le) vi
+  // chi phi quan ly 2 bo trang thai song song CONG chi phi tinh heuristic
+  // moi lan duyet cong don lai, trong khi loi ich giam so node van khong du
+  // bu. Ket luan: voi mang luoi duong nay, moi bien the "tim kiem thong
+  // minh hon" (heuristic, 2 chieu, hoac ca hai) deu khong thang duoc chi phi
+  // tang them - quay ve han A* MOT CHIEU o (2), phuong an DUY NHAT trong 4
+  // thu nghiem thuc su nhanh hon Dijkstra thuan (cho tuyen gan/vua) ma khong
+  // co truong hop nao cham hon ro ret. Neu sau nay van can tuyen cuc dai
+  // nhanh hon nua, huong con lai la thay doi CAU TRUC (khong phai thuat
+  // toan tim kiem) - vd phan cap duong theo loai (chi dung duong lon cho
+  // doan giua tuyen dai) - danh doi mat dam bao toi uu tuyet doi.
+  function dijkstra(g, startId, endId) {
+    var n = g.nodes.length;
+    var dist = new Array(n).fill(Infinity);
+    var prev = new Array(n).fill(-1);
+    var visited = new Array(n).fill(false);
+    dist[startId] = 0;
+    var targetNode = g.nodes[endId];
+    // Phep chieu phang xap xi cuc bo (giong ky thuat da dung trong
+    // snapToRoad()) thay vi goi thang haversineMeters() (nang lượng giac hon
+    // nhieu) - chi 1 lan tinh Math.cos() duy nhat cho ca lan tim duong nay,
+    // moi lan goi h() sau do chi con phep tinh don gian + 1 Math.sqrt.
+    var metersPerDegLat = 111320;
+    var metersPerDegLon = 111320 * Math.cos(targetNode.lat * Math.PI / 180);
+    // Cache theo node - 1 node co the bi tinh lai h() nhieu lan (moi lan
+    // duoc "rut ngan" duong di toi no lai day 1 entry moi vao heap - lazy
+    // deletion), h(nodeId) luon ra CUNG 1 gia tri cho cung 1 lan goi
+    // dijkstra() nen cache an toan tuyet doi.
+    var hCache = new Array(n);
+    function h(nodeId) {
+      var v = hCache[nodeId];
+      if (v !== undefined) return v;
+      var a = g.nodes[nodeId];
+      var dLat = (a.lat - targetNode.lat) * metersPerDegLat;
+      var dLon = (a.lon - targetNode.lon) * metersPerDegLon;
+      v = Math.sqrt(dLat * dLat + dLon * dLon) / MAX_ROUTE_SPEED_MPS;
+      hCache[nodeId] = v;
+      return v;
+    }
+    var heap = new MinHeap();
+    heap.push({ id: startId, priority: h(startId) });
+    while (heap.size() > 0) {
+      var top = heap.pop();
+      var id = top.id;
+      if (visited[id]) continue;
+      visited[id] = true;
+      if (id === endId) break;
+      var edges = g.adjacency[id];
+      for (var i = 0; i < edges.length; i++) {
+        var edge = edges[i];
+        if (visited[edge.to]) continue;
+        var nd = dist[id] + edge.weight;
+        if (nd < dist[edge.to]) {
+          dist[edge.to] = nd;
+          prev[edge.to] = id;
+          heap.push({ id: edge.to, priority: nd + h(edge.to) });
+        }
+      }
+    }
+    if (dist[endId] === Infinity) return null;
+    var path = [];
+    var cur = endId;
+    while (cur !== -1) { path.push(cur); cur = prev[cur]; }
+    path.reverse();
+    return { path: path, time: dist[endId] }; // time = giay, xem ghi chu weight trong addEdge()
+  }
+
+  // (2026-09-11) Doi tu quet TUYEN TINH toan bo roadGraph.nodes (~2 trieu
+  // node sau dot mo rong vung - moi lan bam chon diem di/den de chi duong se
+  // dung hinh vai giay) sang tra qua nodeGrid (luoi 111m/o co san tu
+  // buildRoadGraphAsync) - mo rong dan ban kinh o vuong tu 1 o, chi quet cac
+  // o that su ton tai node. Ket qua giong het ve mat toan hoc (van la node
+  // GAN NHAT thuc su), chi khac cach tim - xem ghi chu chi tiet trong than
+  // ham.
+  function nearestGraphNode(lat, lon) {
+    if (!roadGraph || !roadGraph.nodes.length || !roadGraph.nodeGrid) return null;
+    var cellSizeDeg = roadGraph.cellSizeDeg;
+    var cx = Math.floor(lat / cellSizeDeg), cy = Math.floor(lon / cellSizeDeg);
+    var best = null, bestDist = Infinity;
+    function scanCell(gx, gy) {
+      var bucket = roadGraph.nodeGrid.get(gx + ',' + gy);
+      if (!bucket) return;
+      for (var k = 0; k < bucket.length; k++) {
+        var n = roadGraph.nodes[bucket[k]];
+        var d = haversineMeters(lat, lon, n.lat, n.lon);
+        if (d < bestDist) { bestDist = d; best = bucket[k]; }
+      }
+    }
+    // Chi quet VIEN NGOAI moi cua o vuong ban kinh r (khong quet lai toan bo
+    // o vuong tu dau moi vong nhu ban dau - se ra dung ket qua nhung ton
+    // O(r^2) LAP LAI cho MOI ban kinh, tong cong O(r^3) qua het cac vong,
+    // do la nguyen nhan diem hoan toan khong co du lieu gan do (bam giua
+    // bien) mat toi ~9s khi test (phai quet het toi MAX_RING). Chi quet
+    // vien moi moi vong (O(r) cho rieng vong do) giu tong chi phi O(r^2),
+    // du diem xa nhat/khong co du lieu cung chi mat vai chuc ms.
+    function scanRingFrame(r) {
+      if (r === 0) { scanCell(cx, cy); return; }
+      for (var dx = -r; dx <= r; dx++) { scanCell(cx + dx, cy - r); scanCell(cx + dx, cy + r); }
+      for (var dy = -r + 1; dy <= r - 1; dy++) { scanCell(cx - r, cy + dy); scanCell(cx + r, cy + dy); }
+    }
+    var MAX_RING = 200; // ~200*111m ~= 22km - qua xa thi coi nhu khong co du lieu duong gan do, tranh quet vo han neu bam vao giua bien/vung khong co du lieu
+    var foundAtRing = -1;
+    for (var ring = 0; ring <= MAX_RING; ring++) {
+      scanRingFrame(ring);
+      if (best !== null && foundAtRing === -1) foundAtRing = ring;
+      // Da tim thay it nhat 1 node - quet them dung 1 vien nua roi dung,
+      // tranh bo sot 1 node nam ngay vien ke tiep nhung THUC RA gan hon (chi
+      // so o luoi khong dong nghia khoang cach thuc, dac biet o goc/vien).
+      if (foundAtRing !== -1 && ring >= foundAtRing + 1) break;
+    }
+    return best;
+  }
+
+  var roadGraph = null;
+  (function buildRoadGraphOnce() {
+    var ways = window.__DA_NANG_ROADS || [];
+    var wayClasses = window.__DA_NANG_ROADS_CLASS || [];
+    var wayOneway = window.__DA_NANG_ROADS_ONEWAY || [];
+    var t0 = Date.now();
+    log('Dang chuan bi du lieu duong xa (' + ways.length + ' duong) - ban do van dung/keo/zoom binh thuong trong luc cho.');
+    buildRoadGraphAsync(ways, wayClasses, wayOneway, 8, null, function (graph) { // gop cac diem cach nhau <=8m thanh 1 node - du de noi cac duong giao nhau, khong gop nham 2 duong song song gan nhau
+      roadGraph = graph;
+      log('Da dung xong mang luoi duong: ' + roadGraph.nodes.length + ' node tu ' + ways.length + ' duong (' + (Date.now() - t0) + 'ms).');
+    });
+  })();
+
+  function formatDuration(seconds) {
+    var m = Math.round(seconds / 60);
+    if (m < 1) return 'duoi 1 phut';
+    if (m < 60) return m + ' phut';
+    var h = Math.floor(m / 60), rm = m % 60;
+    return h + ' gio' + (rm ? ' ' + rm + ' phut' : '');
+  }
+
+  var pickingRouteFrom = null; // { lat, lon } trong luc cho bam chon diem den
+  var pickingRouteDeviceId = null; // deviceId tuong ung voi pickingRouteFrom, de tra toc do rieng/lich su khi tinh ETA
+  var routeState = null; // { points: [{lat,lon,cumMeters,cumSeconds}], polyline, decorator, distanceM, durationS }
+
+  // Toc do rieng cho tung thiet bi khi tinh ETA (khac ROUTE_CLASS_SPEED_KMH
+  // dung chung o tren cho VIEC CHON DUONG - viec chon duong luon dung chung
+  // 1 do thi/bang toc do chia se, vi nhan deu 1 he so khong doi cho moi
+  // canh khong lam doi thu tu duong ngan/nhanh nhat Dijkstra chon; chi so
+  // ETA hien thi cuoi cung la thay doi theo tung thiet bi). Uu tien:
+  // (1) toc do nguoi dung tu dat rieng qua thong-tin-thiet-bi-tool.html,
+  // (2) toc do trung binh suy tu chinh lich su di chuyen that cua thiet bi
+  // do, (3) null (dung uoc luong chung theo loai duong nhu cu).
+  var MIN_MOVING_INTERVAL_M = 50; // duoi nguong nay coi la dung yen giua 2 lan bao vi tri (dau xe, cho den do...), khong tinh vao toc do di chuyen trung binh
+  function inferHistoricalSpeedKmh(history) {
+    if (!history || history.length < 2) return null;
+    var movingMeters = 0, movingSeconds = 0;
+    for (var i = 1; i < history.length; i++) {
+      var a = history[i - 1], b = history[i];
+      var d = haversineMeters(a.lat, a.lon, b.lat, b.lon);
+      var t = (b.ts - a.ts) / 1000;
+      if (d < MIN_MOVING_INTERVAL_M || t <= 0) continue; // coi la dung yen/du lieu bat thuong, bo qua khoang nay
+      movingMeters += d;
+      movingSeconds += t;
+    }
+    return movingSeconds > 0 ? (movingMeters / movingSeconds) * 3.6 : null; // m/s -> km/h
+  }
+  function resolvePersonalSpeedKmh(deviceId) {
+    var m = DEVICE_ID_PHONE_RE.exec(deviceId || '');
+    var entry = m ? deviceDirectory[m[1]] : null;
+    if (entry && entry.speedKmh) return { kmh: entry.speedKmh, source: 'da dat rieng ' + entry.speedKmh + ' km/h' };
+    var dev = devices.get(deviceId);
+    var inferred = dev ? inferHistoricalSpeedKmh(dev.history) : null;
+    if (inferred) return { kmh: inferred, source: 'trung binh tu lich su ' + inferred.toFixed(1) + ' km/h' };
+    return null;
+  }
+
+  function clearRoute() {
+    if (!routeState) return;
+    map.removeLayer(routeState.polyline);
+    map.removeLayer(routeState.decorator);
+    routeState = null;
+  }
+
+  function nearestRoutePoint(points, latlng) {
+    var best = null, bestD2 = Infinity;
+    for (var i = 0; i < points.length; i++) {
+      var p = points[i];
+      var dLat = p.lat - latlng.lat, dLon = p.lon - latlng.lng;
+      var d2 = dLat * dLat + dLon * dLon;
+      if (d2 < bestD2) { bestD2 = d2; best = p; }
+    }
+    return best;
+  }
+
+  function showRoutePanel(point) {
+    var placeName = findNearestPlace(point.lat, point.lon);
+    pointPanelNameEl.textContent = placeName || 'Diem tren duong di';
+    pointPanelTimeRowEl.style.display = '';
+    pointPanelTimeLabelEl.textContent = 'Du kien den luc';
+    pointPanelTimeEl.textContent = formatDateTime(Date.now() + point.cumSeconds * 1000) + ' (con ~' + formatDuration(point.cumSeconds) + ')';
+    pointPanelDistanceRowEl.style.display = '';
+    pointPanelDistanceEl.textContent = (point.cumMeters / 1000).toFixed(2) + ' km';
+    pointPanelPlaceRowEl.style.display = 'none';
+    pointPanelCoordEl.textContent = point.lat.toFixed(6) + ', ' + point.lon.toFixed(6);
+    pointPanelActionBtn.textContent = 'Xoa duong di';
+    pointPanelActionBtn.onclick = function () { clearRoute(); hidePointPanel(); };
+    pointPanelEl.classList.remove('hidden');
+  }
+
+  function computeRoute(fromLat, fromLon, toLat, toLon, deviceId) {
+    if (!roadGraph || !roadGraph.nodes.length) { log('Chua co du lieu duong de tinh duong di.'); return; }
+    var startId = nearestGraphNode(fromLat, fromLon);
+    var endId = nearestGraphNode(toLat, toLon);
+    if (startId === null || endId === null) return;
+    var r = dijkstra(roadGraph, startId, endId);
+    if (!r) { log('Khong tim thay duong di toi diem da chon (mang luoi duong khong lien thong o khu vuc nay).'); return; }
+
+    // Chon duong luon dung chung 1 do thi/bang toc do theo loai duong (xem
+    // ghi chu o khai bao pickingRouteDeviceId) - chi so ETA hien thi cuoi
+    // cung moi doi theo toc do rieng cua thiet bi (neu co).
+    var personal = resolvePersonalSpeedKmh(deviceId);
+    var personalSpeedMps = personal ? (personal.kmh * 1000 / 3600) : null;
+    // (2026-09-12) Mau co dinh DO cho duong du kien (truoc day dung mau
+    // rieng theo tung thiet bi, giong mau lich su/marker - doi lai theo yeu
+    // cau user: lich su di chuyen mau hong, duong du kien mau do, khong con
+    // phan biet theo thiet bi qua mau duong nua).
+    var routeColor = '#dc2626';
+
+    clearRoute();
+    var points = [];
+    var cumMeters = 0, cumSecondsGeneric = 0;
+    for (var i = 0; i < r.path.length; i++) {
+      var n = roadGraph.nodes[r.path[i]];
+      if (i > 0) {
+        // Tim lai dung canh (a->b) trong adjacency de lay dung distance/toc
+        // do CUA DOAN DO (khac nhau tuy loai duong) - khong dung 1 toc do
+        // chung cho ca tuyen.
+        var prevId = r.path[i - 1];
+        var edges = roadGraph.adjacency[prevId];
+        var edge = null;
+        for (var k = 0; k < edges.length; k++) {
+          if (edges[k].to === r.path[i]) { edge = edges[k]; break; }
+        }
+        cumMeters += edge ? edge.distance : haversineMeters(roadGraph.nodes[prevId].lat, roadGraph.nodes[prevId].lon, n.lat, n.lon);
+        cumSecondsGeneric += edge ? edge.weight : 0;
+      }
+      var cumSeconds = personalSpeedMps ? (cumMeters / personalSpeedMps) : cumSecondsGeneric;
+      points.push({ lat: n.lat, lon: n.lon, cumMeters: cumMeters, cumSeconds: cumSeconds });
+    }
+    var latlngs = points.map(function (p) { return [p.lat, p.lon]; });
+    var polyline = L.polyline(latlngs, { color: routeColor, weight: 5, opacity: .9 }).addTo(map);
+    var decorator = L.polylineDecorator(polyline, {
+      patterns: [{
+        offset: '4%', repeat: '7%',
+        symbol: L.Symbol.arrowHead({ pixelSize: 10, polygon: false, pathOptions: { stroke: true, color: routeColor, weight: 3, opacity: .9 } })
+      }]
+    }).addTo(map);
+    polyline.on('click', function (e) {
+      L.DomEvent.stopPropagation(e); // khong de click loang ra map lam an ngay bang vua mo
+      var nearest = nearestRoutePoint(points, e.latlng);
+      if (nearest) showRoutePanel(nearest);
+    });
+    var finalSeconds = points.length ? points[points.length - 1].cumSeconds : 0;
+    routeState = { points: points, polyline: polyline, decorator: decorator, distanceM: cumMeters, durationS: finalSeconds };
+    log('Da tinh duong di: ' + (cumMeters / 1000).toFixed(2) + ' km, ~' + formatDuration(finalSeconds) + ' (' + (personal ? personal.source : 'uoc luong chung theo loai duong') + ').');
+    // Tu hien bang ETA ngay sau khi tinh xong (diem cuoi = noi den), khong
+    // bat nguoi dung phai tu bam vao duong moi thay gio du kien - giong het
+    // bang hien khi bam vao duong, chi khac la tu dong mo san.
+    if (points.length) showRoutePanel(points[points.length - 1]);
+  }
+
+  function armRoutePicking(fromPoint, deviceId) {
+    pickingRouteFrom = fromPoint;
+    pickingRouteDeviceId = deviceId;
+    hidePointPanel();
+    destInputEl.value = '';
+    destPanelEl.classList.remove('hidden');
+    destInputEl.focus();
+    log('Da chon diem bat dau - bam vao 1 diem tren ban do, hoac nhap ten noi den, de chon noi den.');
+  }
+  function hideDestPanel() {
+    destPanelEl.classList.add('hidden');
+  }
+  destPanelCloseBtn.addEventListener('click', function () {
+    pickingRouteFrom = null;
+    pickingRouteDeviceId = null;
+    hideDestPanel();
+  });
+
+  // Tim dia diem theo ten go tay, doi chieu qua gazetteer offline
+  // (window.__DA_NANG_PLACES) da dung san cho findNearestPlace() o tren -
+  // dung lai dung 1 nguon du lieu, khong them nguon tim kiem nao khac. So
+  // sanh bo dau (NFD + bo dau + rieng "d") vi nguoi dung thuong go khong
+  // dau (vd "nga ba hue" van phai khop "Ngã ba Huế"); trong nhieu ket qua
+  // trung ten (vd "cho" khop rat nhieu cho), chon ket qua GAN diem xuat
+  // phat nhat de bot mo ho thay vi bat nguoi dung chon tu 1 danh sach.
+  function normalizeSearchText(s) {
+    return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+  }
+  function findPlaceByName(query, refLat, refLon) {
+    var places = window.__DA_NANG_PLACES;
+    var q = normalizeSearchText(query);
+    if (!places || !places.length || !q) return null;
+    var best = null, bestDist = Infinity;
+    for (var i = 0; i < places.length; i++) {
+      if (normalizeSearchText(places[i][2]).indexOf(q) === -1) continue;
+      var d = haversineMeters(refLat, refLon, places[i][0], places[i][1]);
+      if (d < bestDist) { bestDist = d; best = places[i]; }
+    }
+    return best; // [lat, lon, ten] hoac null
+  }
+  function trySearchDestination() {
+    if (!pickingRouteFrom) return;
+    var query = destInputEl.value.trim();
+    if (!query) return;
+    var place = findPlaceByName(query, pickingRouteFrom.lat, pickingRouteFrom.lon);
+    if (!place) { log('Khong tim thay dia diem "' + query + '".'); return; }
+    var from = pickingRouteFrom, deviceId = pickingRouteDeviceId;
+    pickingRouteFrom = null;
+    pickingRouteDeviceId = null;
+    hideDestPanel();
+    log('Da chon noi den theo ten: ' + place[2] + '.');
+    computeRoute(from.lat, from.lon, place[0], place[1], deviceId);
+  }
+  destSearchBtn.addEventListener('click', trySearchDestination);
+  destInputEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); trySearchDestination(); }
+  });
+
+  map.on('click', function (e) {
+    if (pickingRouteFrom) {
+      var from = pickingRouteFrom, deviceId = pickingRouteDeviceId;
+      pickingRouteFrom = null;
+      pickingRouteDeviceId = null;
+      hideDestPanel();
+      computeRoute(from.lat, from.lon, e.latlng.lat, e.latlng.lng, deviceId);
+      return;
+    }
+    // Bam vao 1 diem trong khong (khong phai marker/duong lich su/duong di
+    // - cac cai do co click handler rieng, tu dung lai bang
+    // stopPropagation) - hien bang thong tin cho DIEM DO, cho phep chi
+    // duong tu diem bat ky tren ban do, khong con bat buoc phai la vi tri 1
+    // thiet bi nhu truoc.
+    showMapPointPanel(e.latlng.lat, e.latlng.lng);
+  });
+
+  // ---------- Trang thai thiet bi (deviceId -> {name,lat,lon,ts,marker,
+  // trailLine,history,color,el}). Chi 1 diem: hien marker. Tu 2 diem tro len:
+  // an marker, ve thanh 1 duong polyline noi toan bo lich su vi tri, bam vao
+  // duong se tim diem da ghi nhan gan cho bam nhat va hien vao bang o tren. ----------
+  var devices = new Map();
+  var hasFitOnce = false;
+  var HISTORY_MAX = 500; // gioi han so diem giu lai / thiet bi, tranh phinh bo nho neu chay rat lau
+
+  function nearestHistoryPoint(history, latlng) {
+    var best = null, bestD2 = Infinity;
+    for (var i = 0; i < history.length; i++) {
+      var p = history[i];
+      var dLat = p.lat - latlng.lat, dLon = p.lon - latlng.lng;
+      var d2 = dLat * dLat + dLon * dLon;
+      if (d2 < bestD2) { bestD2 = d2; best = p; }
+    }
+    return best;
+  }
+  function historyLatLngs(history) {
+    return history.map(function (p) { return [p.lat, p.lon]; });
+  }
+
+  function colorForId(id) {
+    var hash = 0;
+    for (var i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+    return 'hsl(' + (hash % 360) + ', 70%, 45%)';
+  }
+  function deviceIcon(color) {
+    return L.divIcon({ className: 'device-marker', html: '<div class="device-dot" style="background:' + color + '"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
+  }
+  // ---------- Tra ten dia diem OFFLINE (khong goi mang) ----------
+  // Thay vi goi Nominatim qua internet, tim diem co ten GAN NHAT trong
+  // window.__DA_NANG_PLACES (nhung san trong da-nang-places-data.js - mang
+  // [lat, lon, ten], ~8300 duong/dia danh/truong hoc/benh vien... o vung Da
+  // Nang, dung tu OpenStreetMap qua Overpass API cung 1 nguon voi
+  // .pmtiles). Xem lam_viec/CLAUDE.md de biet cach tao lai file nay. Chay
+  // lai duoc moi lan upsertDevice() (ke ca theo poll dinh ky) vi day chi la
+  // 1 vong quet cuc bo trong bo nho, khong phai goi mang - khong can throttle
+  // hay cache nhu khi con dung Nominatim.
+  function haversineMeters(lat1, lon1, lat2, lon2) {
+    var R = 6371000, toRad = Math.PI / 180;
+    var dLat = (lat2 - lat1) * toRad, dLon = (lon2 - lon1) * toRad;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+  var MAX_PLACE_DIST_M = 5000; // qua xa nghia la ngoai vung du lieu Da Nang, khong hien de tranh goi y sai
+  function findNearestPlace(lat, lon) {
+    var places = window.__DA_NANG_PLACES;
+    if (!places || !places.length) return null;
+    var best = null, bestDist = Infinity;
+    for (var i = 0; i < places.length; i++) {
+      var d = haversineMeters(lat, lon, places[i][0], places[i][1]);
+      if (d < bestDist) { bestDist = d; best = places[i]; }
+    }
+    return (best && bestDist <= MAX_PLACE_DIST_M) ? best[2] : null;
+  }
+  function timeAgo(ts) {
+    var s = Math.round((Date.now() - ts) / 1000);
+    if (s < 5) return 'vua xong';
+    if (s < 60) return s + 's truoc';
+    var m = Math.round(s / 60);
+    if (m < 60) return m + 'p truoc';
+    return Math.round(m / 60) + 'g truoc';
+  }
+  function updateCounts() {
+    countPillEl.textContent = String(devices.size);
+    devEmptyEl.style.display = devices.size === 0 ? 'block' : 'none';
+    btnDownload.disabled = devices.size === 0;
+  }
+  function upsertRow(id) {
+    var dev = devices.get(id);
+    if (!dev.el) {
+      var el = document.createElement('div');
+      el.className = 'dev-row';
+      el.innerHTML = '<span class="dev-dot"></span><div class="dev-info"><div class="dev-name"></div><div class="dev-meta"></div></div>';
+      el.addEventListener('click', function () {
+        var d = devices.get(id); // lay lai moi lan bam, tranh dung toa do/marker cu tu lan tao dau tien
+        map.setView([d.lat, d.lon], Math.max(map.getZoom(), 16));
+        showPointPanel(d, { lat: d.lat, lon: d.lon, ts: d.ts });
+      });
+      devListEl.appendChild(el);
+      dev.el = el;
+      dev.dotEl = el.querySelector('.dev-dot');
+      dev.nameEl = el.querySelector('.dev-name');
+      dev.metaEl = el.querySelector('.dev-meta');
+    }
+    dev.dotEl.style.background = dev.color;
+    dev.nameEl.textContent = dev.name;
+    dev.metaEl.textContent = timeAgo(dev.ts) + ' - ' + dev.lat.toFixed(6) + ', ' + dev.lon.toFixed(6);
+  }
+
+  function upsertDevice(id, name, lat, lon, ts) {
+    var snapped = snapToRoad(lat, lon, SNAP_TO_ROAD_MAX_M);
+    if (snapped) { lat = snapped.lat; lon = snapped.lon; }
+    var existing = devices.get(id);
+    var color = existing ? existing.color : colorForId(id);
+    var history = existing ? existing.history : [];
+    history.push({ lat: lat, lon: lon, ts: ts });
+    if (history.length > HISTORY_MAX) history.shift();
+
+    var marker = existing ? existing.marker : null;
+    var trailLine = existing ? existing.trailLine : null;
+
+    // Marker (dau tron) luon hien o vi tri MOI NHAT, ke ca khi da co duong
+    // cham cham lich su phia sau - khong go marker di nua nhu ban dau, vi
+    // can luon thay ro dau la diem hien tai giua ca tram muc tieu tren ban
+    // do.
+    if (!marker) {
+      marker = L.marker([lat, lon], { icon: deviceIcon(color) }).addTo(map);
+      marker.on('click', function () {
+        var d = devices.get(id);
+        showPointPanel(d, { lat: d.lat, lon: d.lon, ts: d.ts });
+      });
+    } else {
+      marker.setLatLng([lat, lon]);
+    }
+
+    if (history.length >= 2) {
+      var latlngs = historyLatLngs(history);
+      if (!trailLine) {
+        // Net cham cham (dashArray ngan + lineCap tron) de phan biet voi
+        // duong di toi uu (net lien, co mui ten) ve boi computeRoute() - "da
+        // di qua" (qua khu) khac "sap di" (du kien). (2026-09-12) Mau co
+        // dinh HONG cho lich su di chuyen (khac mau rieng theo tung thiet
+        // bi truoc day) - theo yeu cau user, khong con phan biet thiet bi
+        // qua mau duong nua, chi qua marker/ten trong danh sach.
+        var TRAIL_COLOR = '#ec4899';
+        trailLine = L.polyline(latlngs, { color: TRAIL_COLOR, weight: 4, opacity: .85, dashArray: '1, 9', lineCap: 'round' }).addTo(map);
+        trailLine.on('click', function (e) {
+          L.DomEvent.stopPropagation(e); // khong de click loang ra map lam an ngay bang vua mo
+          var d = devices.get(id);
+          var nearest = nearestHistoryPoint(d.history, e.latlng);
+          if (nearest) showPointPanel(d, nearest);
+        });
+      } else {
+        trailLine.setLatLngs(latlngs);
+      }
+    }
+
+    var dev = Object.assign({}, existing, { id: id, name: name, lat: lat, lon: lon, ts: ts, marker: marker, trailLine: trailLine, history: history, color: color });
+    devices.set(id, dev);
+    upsertRow(id);
+    updateCounts();
+    if (!hasFitOnce) { map.setView([lat, lon], 15); hasFitOnce = true; }
+    return dev;
+  }
+
+  // ---------- Xuat GeoJSON (vi tri moi nhat cua tung thiet bi) ----------
+  btnDownload.addEventListener('click', function () {
+    var features = [];
+    devices.forEach(function (dev, id) {
+      features.push({
+        type: 'Feature',
+        properties: { device_id: id, device_name: dev.name, updated_at: new Date(dev.ts).toISOString() },
+        geometry: { type: 'Point', coordinates: [dev.lon, dev.lat] }
+      });
+    });
+    var geojson = { type: 'FeatureCollection', features: features };
+    var blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/geo+json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'vi-tri-sms-tu-dong.geojson';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    log('Da tai GeoJSON.');
+  });
+
+  // ---------- Danh ba "so dien thoai -> ten thiet bi" (dat qua
+  // thong-tin-thiet-bi-tool.html, luu tren server o /devices) - dung de doi
+  // ten hien thi tren ban do tu so dien thoai thanh ten de doc, thay vi hien
+  // nguyen so; va (2026-09-03) doi ca toc do trung binh rieng cho ETA khi chi
+  // duong, xem resolvePersonalSpeedKmh() o tren. Chi ap dung cho thiet bi gui
+  // qua SMS (deviceId dang "sms-<so>", xem
+  // doc-sms-qua-esp32-usb.js/doc-sms-qua-dien-thoai-adb.js) - cac nguon khac
+  // (vd GpsPosSender qua WiFi) khong co so dien thoai nen giu nguyen ten
+  // server gui len va luon dung uoc luong toc do chung. Moi phan tu la object
+  // { name, speedKmh } (server tu chuan hoa, xem normalizeDirectoryEntry()
+  // trong nhan-sms-tu-dong-server.js). ----------
+  var deviceDirectory = {};
+  var DEVICE_ID_PHONE_RE = /^sms-(\d+)$/;
+  function resolveDisplayName(deviceId, fallbackName) {
+    var m = DEVICE_ID_PHONE_RE.exec(deviceId);
+    var entry = m ? deviceDirectory[m[1]] : null;
+    return (entry && entry.name) ? entry.name : fallbackName;
+  }
+  function refreshDeviceDirectory() {
+    fetch('/devices')
+      .then(function (r) { return r.json(); })
+      .then(function (data) { if (data.ok) deviceDirectory = data.devices || {}; })
+      .catch(function () { /* server co the chua chay xong - thu lai o lan sau */ });
+  }
+  refreshDeviceDirectory();
+  setInterval(refreshDeviceDirectory, 15000);
+
+  // ---------- Poll /latest tu server local ----------
+  var lastId = 0;
+
+  function poll() {
+    fetch('/latest?afterId=' + lastId)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) return;
+        data.items.forEach(function (item) {
+          lastId = Math.max(lastId, item.id);
+          var displayName = resolveDisplayName(item.deviceId, item.name);
+          upsertDevice(item.deviceId, displayName, item.lat, item.lon, item.ts);
+          log('Nhan tu dong (' + (item.source || '?') + '): ' + displayName + ' -> ' + item.lat.toFixed(6) + ', ' + item.lon.toFixed(6));
+        });
+      })
+      .catch(function () { /* server co the tam mat ket noi - poll lai o lan sau, khong hien loi rieng */ })
+      .finally(function () { setTimeout(poll, POLL_MS); });
+  }
+  poll();
+})();
+</script>
+</body>
+</html>

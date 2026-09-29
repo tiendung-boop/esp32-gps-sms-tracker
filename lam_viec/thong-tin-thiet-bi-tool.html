@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Thong tin thiet bi</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f8;
+    --panel-bg: #ffffff;
+    --card-bg: #fcfcfd;
+    --border: #dfe0e6;
+    --text: #1a1a1f;
+    --muted: #6b6b76;
+    --accent: #2563eb;
+    --accent-2: #16a34a;
+    --danger: #dc2626;
+    --shadow: 0 1px 2px rgba(15, 15, 20, .05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181c;
+      --panel-bg: #1f2025;
+      --card-bg: #232429;
+      --border: #34353c;
+      --text: #ececf0;
+      --muted: #9a9aa5;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
+  #wrap { max-width: 880px; margin: 0 auto; padding: 22px 18px 60px; }
+
+  #brandHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  #brandMark { width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; }
+  #brandHeader h1 { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  #brandHeader p.sub { color: var(--muted); font-size: 12px; margin: 2px 0 0; line-height: 1.5; }
+
+  section { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .card-head h2 { flex: 1; margin: 0; font-size: 13px; font-weight: 700; color: var(--text); }
+  p.note { color: var(--muted); font-size: 11.5px; margin: 8px 0 0; line-height: 1.5; }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  button { font: inherit; font-size: 12.5px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border); background: var(--panel-bg); color: var(--text); cursor: pointer; transition: background .12s ease, border-color .12s ease, opacity .12s ease; }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.ghost { background: transparent; }
+  button.danger-text { color: var(--danger); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.icon-btn { padding: 6px 9px; font-size: 14px; line-height: 1; }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; white-space: nowrap; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.ok { color: var(--accent-2); background: rgba(22, 163, 74, .12); border-color: rgba(22, 163, 74, .35); }
+  @media (prefers-color-scheme: dark) { .pill.ok { color: #4ade80; } }
+
+  #searchBox { width: 100%; font: inherit; font-size: 12.5px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 9px 10px; margin-bottom: 10px; }
+
+  #tableWrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { text-align: left; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; padding: 0 8px 8px; }
+  tbody tr { border-top: 1px solid var(--border); }
+  tbody td { padding: 6px 8px; vertical-align: middle; }
+  tbody td:last-child { width: 36px; }
+  tbody td.speedCol { width: 130px; }
+  tbody input { width: 100%; font: inherit; font-size: 13px; color: var(--text); background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; }
+  tbody input.phoneInput { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+  tbody input.warn { border-color: var(--danger); }
+  #emptyNote, #noMatchNote { display: none; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(10, 10, 14, .45); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 10; }
+  .modal { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 14px; padding: 18px; width: 100%; max-width: 640px; max-height: 86vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+  .modal label { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin: 12px 0 6px; }
+  .modal textarea { width: 100%; min-height: 130px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 11.5px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 9px 10px; line-height: 1.5; }
+  .modal .row { margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header id="brandHeader">
+    <div id="brandMark">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+    </div>
+    <div>
+      <h1>Thong tin thiet bi</h1>
+      <p class="sub">Danh ba so dien thoai - ten thiet bi. Nhap tay tung dong hoac nhap hang loat tu file Excel (.xlsx). Neu trang nay dang duoc mo qua server "nhan-sms-tu-dong" (dia chi http://127.0.0.1:8899/...), du lieu se dong bo len server de ten thiet bi tu hien tren ban do thay vi so dien thoai; neu mo truc tiep bang file (khong qua server), du lieu chi luu trong trinh duyet nay (localStorage). Cot "Toc do TB" la tuy chon - dat toc do trung binh (km/h) rieng cho 1 thiet bi neu biet truoc (vd xe tai cham hon xe may) de tinh gio du kien den chinh xac hon khi chi duong; de trong thi trang ban do se tu tinh tu lich su di chuyen that cua thiet bi do, hoac neu chua co du lieu thi dung uoc luong chung theo loai duong.</p>
+    </div>
+  </header>
+
+  <section>
+    <div class="card-head">
+      <h2>Thao tac</h2>
+      <span id="syncPill" class="pill"><span class="dot"></span>Dang kiem tra...</span>
+      <span id="savedPill" class="pill ok"><span class="dot"></span>Da luu</span>
+    </div>
+    <div class="row">
+      <button id="btnAddRow" class="primary">+ Them dong</button>
+      <button id="btnImportExcel" class="ghost">Nhap tu Excel (.xlsx)</button>
+      <button id="btnExportExcel" class="ghost">Xuat Excel</button>
+      <button id="btnExportCsv" class="ghost">Xuat CSV</button>
+      <button id="btnExportCode" class="ghost">Xuat ma KNOWN_SENDERS</button>
+      <button id="btnClearAll" class="ghost danger-text">Xoa tat ca</button>
+    </div>
+    <input type="file" id="fileExcel" accept=".xlsx,.xls" style="display:none" />
+    <p class="note" id="importLog"></p>
+    <p class="note">Cot 1 trong file Excel la so dien thoai, cot 2 la ten thiet bi, cot 3 (tuy chon) la toc do trung binh km/h (dong tieu de neu co se tu bo qua). So trung nhau se duoc cap nhat ten/toc do moi nhat, khong tao dong trung.</p>
+  </section>
+
+  <section>
+    <div class="card-head">
+      <h2>Danh sach (<span id="countLabel">0</span>)</h2>
+    </div>
+    <input type="text" id="searchBox" placeholder="Tim theo so dien thoai hoac ten thiet bi..." />
+    <div id="tableWrap">
+      <table id="deviceTable">
+        <thead><tr><th>So dien thoai</th><th>Ten thiet bi</th><th>Toc do TB (km/h)</th><th></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="note" id="emptyNote">Chua co thiet bi nao. Bam "+ Them dong" hoac "Nhap tu Excel" o tren de bat dau.</p>
+    <p class="note" id="noMatchNote">Khong tim thay thiet bi nao khop voi tu khoa tim kiem.</p>
+  </section>
+</div>
+
+<div id="codeModal" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <div class="card-head">
+      <h2>Ma KNOWN_SENDERS de dan vao code</h2>
+      <button id="btnCloseModal" class="ghost">Dong</button>
+    </div>
+    <p class="note">Doan duoi dung cho <code>SmsReceiver.ino</code> / <code>SmsReceiverUSB.ino</code> (mang C struct), doan tiep theo dung cho <code>doc-sms-qua-dien-thoai-adb.js</code> (object JS). Dan de trong dung bien <code>KNOWN_SENDERS</code> co san trong file, roi nap lai firmware / khoi dong lai script tuong ung.</p>
+
+    <label>Cho SmsReceiver.ino / SmsReceiverUSB.ino</label>
+    <textarea id="codeIno" readonly onclick="this.select()"></textarea>
+    <div class="row"><button id="btnCopyIno" class="ghost">Sao chep doan tren</button></div>
+
+    <label>Cho doc-sms-qua-dien-thoai-adb.js</label>
+    <textarea id="codeJs" readonly onclick="this.select()"></textarea>
+    <div class="row"><button id="btnCopyJs" class="ghost">Sao chep doan tren</button></div>
+
+    <p class="note" id="skippedNote"></p>
+  </div>
+</div>
+
+<script src="vendor/xlsx/xlsx.full.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'thongTinThietBi_v1';
+  var devices = [];   // { id, phone, name, speedKmh }
+  var nextId = 1;
+
+  var tbody = document.getElementById('tbody');
+  var countLabel = document.getElementById('countLabel');
+  var emptyNote = document.getElementById('emptyNote');
+  var searchBox = document.getElementById('searchBox');
+  var savedPill = document.getElementById('savedPill');
+  var syncPill = document.getElementById('syncPill');
+
+  var serverMode = false; // true khi trang duoc mo qua nhan-sms-tu-dong-server.js (co /devices) - false khi mo truc tiep bang file (chi luu localStorage)
+
+  function digitsOnly(s) {
+    return String(s == null ? '' : s).replace(/\D/g, '');
+  }
+
+  function toSpeedKmh(v) {
+    var n = Number(v);
+    return (v !== '' && v != null && isFinite(n) && n > 0 && n <= 300) ? n : '';
+  }
+
+  function devicesToArray(list) {
+    return list.map(function (d) {
+      return { id: nextId++, phone: String(d.phone || ''), name: String(d.name || ''), speedKmh: toSpeedKmh(d.speedKmh) };
+    });
+  }
+
+  function loadFromStorage() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      if (Array.isArray(raw)) devices = devicesToArray(raw);
+    } catch (e) { devices = []; }
+  }
+
+  function setSyncPill(connected) {
+    syncPill.classList.toggle('ok', connected);
+    syncPill.lastChild.textContent = connected ? 'Dong bo voi ban do' : 'Chi luu tren may nay (mo bang file)';
+  }
+
+  function pushToServer() {
+    var obj = {};
+    devices.forEach(function (d) {
+      if (!d.phone) return;
+      var entry = { name: d.name };
+      if (d.speedKmh !== '' && d.speedKmh != null) entry.speedKmh = d.speedKmh;
+      obj[d.phone] = entry;
+    });
+    fetch('/devices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ devices: obj })
+    }).catch(function () { /* localStorage van la ban sao du phong, thu lai o lan luu sau */ });
+  }
+
+  function initSync() {
+    fetch('/devices')
+      .then(function (r) { if (!r.ok) throw new Error('bad status'); return r.json(); })
+      .then(function (data) {
+        if (!data.ok) throw new Error('bad response');
+        serverMode = true;
+        var serverPhones = Object.keys(data.devices || {});
+        if (serverPhones.length === 0 && devices.length > 0) {
+          // Server chua co du lieu nhung may nay da co san (vd tung dung o che
+          // do file:// truoc do) - day len server 1 lan de "di dan" du lieu cu.
+          pushToServer();
+        } else {
+          devices = devicesToArray(serverPhones.map(function (p) {
+            var entry = data.devices[p];
+            var name = entry && typeof entry === 'object' ? entry.name : entry; // phong khi server tra ve dang chuoi cu (chua tung ghi lai theo dang moi)
+            var speedKmh = entry && typeof entry === 'object' ? entry.speedKmh : undefined;
+            return { phone: p, name: name, speedKmh: speedKmh };
+          }));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(devices.map(function (d) { return { phone: d.phone, name: d.name, speedKmh: d.speedKmh }; })));
+        }
+        setSyncPill(true);
+        render();
+      })
+      .catch(function () { serverMode = false; setSyncPill(false); });
+  }
+
+  var saveTimer = null;
+  function saveToStorage() {
+    savedPill.classList.remove('ok');
+    savedPill.lastChild.textContent = 'Dang luu...';
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      var plain = devices.map(function (d) { return { phone: d.phone, name: d.name, speedKmh: d.speedKmh }; });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(plain));
+      if (serverMode) pushToServer();
+      savedPill.classList.add('ok');
+      savedPill.lastChild.textContent = 'Da luu';
+    }, 250);
+  }
+
+  function findDevice(id) {
+    for (var i = 0; i < devices.length; i++) if (devices[i].id === id) return devices[i];
+    return null;
+  }
+
+  function phoneCounts() {
+    var counts = {};
+    devices.forEach(function (d) {
+      if (!d.phone) return;
+      counts[d.phone] = (counts[d.phone] || 0) + 1;
+    });
+    return counts;
+  }
+
+  function render() {
+    var q = searchBox.value.trim().toLowerCase();
+    var counts = phoneCounts();
+    tbody.innerHTML = '';
+    var shown = 0;
+    devices.forEach(function (d) {
+      if (q && d.phone.toLowerCase().indexOf(q) === -1 && d.name.toLowerCase().indexOf(q) === -1) return;
+      shown++;
+      var tr = document.createElement('tr');
+      tr.dataset.id = d.id;
+
+      var tdPhone = document.createElement('td');
+      var inPhone = document.createElement('input');
+      inPhone.className = 'phoneInput';
+      inPhone.value = d.phone;
+      inPhone.placeholder = 'vd: 84987654321';
+      if (d.phone && counts[d.phone] > 1) { inPhone.classList.add('warn'); inPhone.title = 'So nay bi trung voi 1 dong khac trong danh sach'; }
+      tdPhone.appendChild(inPhone);
+
+      var tdName = document.createElement('td');
+      var inName = document.createElement('input');
+      inName.className = 'nameInput';
+      inName.value = d.name;
+      inName.placeholder = 'vd: Xe may 1';
+      if (d.name.indexOf('|') !== -1) { inName.classList.add('warn'); inName.title = 'Ten khong duoc chua ky tu "|" (lam sai dinh dang dong TOADO| cua SmsReceiverUSB.ino)'; }
+      tdName.appendChild(inName);
+
+      var tdSpeed = document.createElement('td');
+      tdSpeed.className = 'speedCol';
+      var inSpeed = document.createElement('input');
+      inSpeed.type = 'number';
+      inSpeed.min = '1';
+      inSpeed.max = '300';
+      inSpeed.step = '1';
+      inSpeed.className = 'speedInput';
+      inSpeed.value = d.speedKmh === '' || d.speedKmh == null ? '' : d.speedKmh;
+      inSpeed.placeholder = 'tu tinh';
+      inSpeed.title = 'De trong = tu dong tinh tu lich su di chuyen hoac uoc luong chung theo loai duong';
+      tdSpeed.appendChild(inSpeed);
+
+      var tdDel = document.createElement('td');
+      var btnDel = document.createElement('button');
+      btnDel.className = 'ghost icon-btn';
+      btnDel.title = 'Xoa dong nay';
+      btnDel.textContent = '×';
+      tdDel.appendChild(btnDel);
+
+      tr.appendChild(tdPhone); tr.appendChild(tdName); tr.appendChild(tdSpeed); tr.appendChild(tdDel);
+      tbody.appendChild(tr);
+    });
+    countLabel.textContent = devices.length;
+    var noMatchNote = document.getElementById('noMatchNote');
+    emptyNote.style.display = devices.length === 0 ? '' : 'none';
+    noMatchNote.style.display = devices.length > 0 && shown === 0 ? '' : 'none';
+    document.getElementById('deviceTable').style.display = shown === 0 ? 'none' : '';
+  }
+
+  function updateRowWarnings() {
+    var counts = phoneCounts();
+    Array.prototype.forEach.call(tbody.querySelectorAll('tr'), function (tr) {
+      var d = findDevice(Number(tr.dataset.id));
+      if (!d) return;
+      var inPhone = tr.querySelector('.phoneInput');
+      var inName = tr.querySelector('.nameInput');
+      var dup = !!d.phone && counts[d.phone] > 1;
+      inPhone.classList.toggle('warn', dup);
+      inPhone.title = dup ? 'So nay bi trung voi 1 dong khac trong danh sach' : '';
+      var badName = d.name.indexOf('|') !== -1;
+      inName.classList.toggle('warn', badName);
+      inName.title = badName ? 'Ten khong duoc chua ky tu "|" (lam sai dinh dang dong TOADO| cua SmsReceiverUSB.ino)' : '';
+    });
+  }
+
+  tbody.addEventListener('input', function (e) {
+    var tr = e.target.closest('tr');
+    if (!tr) return;
+    var d = findDevice(Number(tr.dataset.id));
+    if (!d) return;
+    if (e.target.classList.contains('phoneInput')) d.phone = e.target.value;
+    else if (e.target.classList.contains('nameInput')) d.name = e.target.value;
+    else if (e.target.classList.contains('speedInput')) d.speedKmh = toSpeedKmh(e.target.value);
+    saveToStorage();
+  });
+
+  tbody.addEventListener('blur', function (e) {
+    if (!e.target.classList || !e.target.classList.contains('phoneInput')) return;
+    var tr = e.target.closest('tr');
+    var d = findDevice(Number(tr.dataset.id));
+    if (!d) return;
+    var normalized = digitsOnly(d.phone);
+    if (normalized !== d.phone) { d.phone = normalized; e.target.value = normalized; saveToStorage(); }
+    updateRowWarnings();
+  }, true);
+
+  tbody.addEventListener('blur', function (e) {
+    if (!e.target.classList || !e.target.classList.contains('nameInput')) return;
+    updateRowWarnings();
+  }, true);
+
+  tbody.addEventListener('click', function (e) {
+    if (!e.target.closest('button')) return;
+    var tr = e.target.closest('tr');
+    var id = Number(tr.dataset.id);
+    devices = devices.filter(function (d) { return d.id !== id; });
+    saveToStorage();
+    render();
+  });
+
+  tbody.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    if (searchBox.value.trim()) return; // dang loc - dong cuoi hien thi khong phai dong cuoi that su
+    var tr = e.target.closest('tr');
+    if (!tr) return;
+    var rows = tbody.querySelectorAll('tr');
+    if (rows[rows.length - 1] === tr) {
+      e.preventDefault();
+      addRow();
+    }
+  });
+
+  searchBox.addEventListener('input', render);
+
+  function addRow() {
+    devices.push({ id: nextId++, phone: '', name: '', speedKmh: '' });
+    saveToStorage();
+    render();
+    var rows = tbody.querySelectorAll('tr');
+    var last = rows[rows.length - 1];
+    if (last) last.querySelector('.phoneInput').focus();
+  }
+  document.getElementById('btnAddRow').addEventListener('click', addRow);
+
+  document.getElementById('btnClearAll').addEventListener('click', function () {
+    if (devices.length === 0) return;
+    if (!confirm('Xoa toan bo ' + devices.length + ' thiet bi trong danh sach? Khong the hoan tac.')) return;
+    devices = [];
+    saveToStorage();
+    render();
+  });
+
+  // ---- Nhap tu Excel ----
+  var fileExcel = document.getElementById('fileExcel');
+  document.getElementById('btnImportExcel').addEventListener('click', function () { fileExcel.click(); });
+  fileExcel.addEventListener('change', function () {
+    var file = fileExcel.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+        importRows(rows);
+      } catch (err) {
+        document.getElementById('importLog').textContent = 'Loi doc file Excel: ' + err.message;
+      }
+      fileExcel.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  function looksLikeHeader(row) {
+    var joined = (row || []).join(' ').toLowerCase();
+    var hasPhoneWord = /dien thoai|phone|sdt|so may/.test(joined);
+    var hasNameWord = /ten|name/.test(joined);
+    return hasPhoneWord && hasNameWord;
+  }
+
+  function importRows(rows) {
+    var start = (rows.length > 0 && looksLikeHeader(rows[0])) ? 1 : 0;
+    var added = 0, updated = 0, skipped = 0;
+    for (var i = start; i < rows.length; i++) {
+      var row = rows[i] || [];
+      var phoneRaw = row[0], nameRaw = row[1], speedRaw = row[2];
+      if ((phoneRaw === undefined || String(phoneRaw).trim() === '') && (nameRaw === undefined || String(nameRaw).trim() === '')) continue;
+      var digits = digitsOnly(phoneRaw);
+      if (!digits) { skipped++; continue; }
+      var name = String(nameRaw == null ? '' : nameRaw).trim();
+      var speedKmh = toSpeedKmh(speedRaw);
+      var existing = null;
+      for (var k = 0; k < devices.length; k++) if (devices[k].phone === digits) { existing = devices[k]; break; }
+      if (existing) {
+        if (name) existing.name = name;
+        if (speedKmh !== '') existing.speedKmh = speedKmh;
+        if (name || speedKmh !== '') updated++;
+      }
+      else { devices.push({ id: nextId++, phone: digits, name: name || digits, speedKmh: speedKmh }); added++; }
+    }
+    saveToStorage();
+    render();
+    document.getElementById('importLog').textContent =
+      'Da nhap tu Excel: ' + added + ' dong moi, ' + updated + ' dong cap nhat (trung so dien thoai), ' + skipped + ' dong bo qua (khong doc duoc so dien thoai).';
+  }
+
+  // ---- Xuat Excel / CSV ----
+  document.getElementById('btnExportExcel').addEventListener('click', function () {
+    var aoa = [['So dien thoai', 'Ten thiet bi', 'Toc do TB (km/h)']].concat(devices.map(function (d) { return [d.phone, d.name, d.speedKmh === '' ? '' : d.speedKmh]; }));
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'ThietBi');
+    XLSX.writeFile(wb, 'thong-tin-thiet-bi.xlsx');
+  });
+
+  function csvEscape(v) {
+    v = String(v == null ? '' : v);
+    if (/[",\n]/.test(v)) v = '"' + v.replace(/"/g, '""') + '"';
+    return v;
+  }
+  document.getElementById('btnExportCsv').addEventListener('click', function () {
+    var lines = ['So dien thoai,Ten thiet bi,Toc do TB (km/h)'].concat(devices.map(function (d) { return csvEscape(d.phone) + ',' + csvEscape(d.name) + ',' + csvEscape(d.speedKmh === '' ? '' : d.speedKmh); }));
+    var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'thong-tin-thiet-bi.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  // ---- Xuat ma KNOWN_SENDERS ----
+  document.getElementById('btnExportCode').addEventListener('click', function () {
+    var seenPhones = {};
+    var valid = [];
+    var skipped = 0;
+    devices.forEach(function (d) {
+      if (!d.phone || d.name.indexOf('|') !== -1 || seenPhones[d.phone]) { skipped++; return; }
+      seenPhones[d.phone] = true;
+      valid.push({ phone: d.phone, name: d.name || d.phone });
+    });
+    var inoLines = valid.map(function (d) { return '  { "' + d.phone + '", "' + d.name.replace(/"/g, '\\"') + '" },'; });
+    var codeIno = 'KnownSender KNOWN_SENDERS[] = {\n' + (inoLines.length ? inoLines.join('\n') + '\n' : '') + '};';
+    var jsLines = valid.map(function (d) { return "  '" + d.phone + "': '" + d.name.replace(/'/g, "\\'") + "',"; });
+    var codeJs = 'const KNOWN_SENDERS = {\n' + (jsLines.length ? jsLines.join('\n') + '\n' : '') + '};';
+    document.getElementById('codeIno').value = codeIno;
+    document.getElementById('codeJs').value = codeJs;
+    document.getElementById('skippedNote').textContent = skipped > 0
+      ? 'Da bo qua ' + skipped + ' dong (thieu so dien thoai, ten chua ky tu "|", hoac so dien thoai bi trung - chi giu dong dau tien cho moi so) - sua loi o bang phia sau roi xuat lai.'
+      : '';
+    document.getElementById('codeModal').style.display = 'flex';
+  });
+  document.getElementById('btnCloseModal').addEventListener('click', function () {
+    document.getElementById('codeModal').style.display = 'none';
+  });
+  function copyTextarea(id, btnId) {
+    document.getElementById(btnId).addEventListener('click', function () {
+      var ta = document.getElementById(id);
+      ta.select();
+      var done = function () { this.textContent = 'Da sao chep'; var self = this; setTimeout(function () { self.textContent = 'Sao chep doan tren'; }, 1500); }.bind(this);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ta.value).then(done).catch(function () { document.execCommand('copy'); done(); });
+      } else {
+        document.execCommand('copy'); done();
+      }
+    });
+  }
+  copyTextarea('codeIno', 'btnCopyIno');
+  copyTextarea('codeJs', 'btnCopyJs');
+
+  loadFromStorage();
+  render();
+  initSync();
+})();
+</script>
+</body>
+</html>

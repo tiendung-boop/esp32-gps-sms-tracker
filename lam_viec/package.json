@@ -1,0 +1,9 @@
+{
+  "name": "lam-viec-nhan-sms-tu-dong",
+  "private": true,
+  "description": "Cong cu doc SMS toa do tu dong (khong can internet) - xem HUONG_DAN.txt muc NHAN SMS TU DONG.",
+  "dependencies": {
+    "@serialport/parser-readline": "^13.0.0",
+    "serialport": "^12.0.0"
+  }
+}

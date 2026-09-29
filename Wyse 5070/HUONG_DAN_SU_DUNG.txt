@@ -1,0 +1,289 @@
+====================================================================
+ HE THONG GUI + NHAN VI TRI QUA SMS (ESP32) - KHONG CAN WIFI/INTERNET
+ Goi dung cho may Wyse 3040 hoac Wyse 5070 (Windows 10 IoT Enterprise)
+====================================================================
+
+TONG QUAN
+---------
+He thong gom 2 con ESP32 rieng biet, noi voi nhau chi bang SMS (khong can
+WiFi/internet o ca 2 dau):
+
+  [ESP32 GUI]  --GPS + SIM 4G--> SMS -->  [ESP32 NHAN] --USB--> [May Wyse nay]
+  (gan xe/vi tri can theo doi)          (cam vao may Wyse)      (chay web xem ban do)
+
+  1. ESP32 GUI (o hien truong, khong WiFi): doc GPS, cu 5 phut gui 1 tin SMS
+     dang "Toa do: <lat>,<lon>" toi 1 so dien thoai co dinh (SIM gan trong
+     ESP32 NHAN).
+  2. ESP32 NHAN (cam USB vao may Wyse): tu doc SMS den qua module SIM, in ra
+     cong USB dang "TOADO|deviceId|ten|lat|lon".
+  3. May Wyse chay 2 chuong trinh Node.js:
+     - 1 server web local (127.0.0.1, KHONG can internet) hien ban do.
+     - 1 script doc du lieu tu cong USB cua ESP32 NHAN, day vao server o tren.
+     Mo trinh duyet vao trang do se thay vi tri cap nhat song song.
+
+QUAN TRONG - WYSE 3040 vs WYSE 5070
+------------------------------------
+2 dong nay khac phan cung dang ke:
+  - Wyse 5070: CPU Intel Gemini Lake/Core i3-i5, RAM thuong >=4GB - hau het
+    cai Windows 64-bit. Dung bo cai trong cai-node-js/x64/.
+  - Wyse 3040: CPU Intel Atom x5-Z8350, chi 2GB RAM - dong nay hay duoc Dell
+    cai san Windows 10 IoT Enterprise BAN 32-BIT de nhe may, du chip ho tro
+    64-bit. PHAI kiem tra truoc, dung nham bo cai se khong cai duoc.
+  Cach kiem tra tren tung may: mo PowerShell, go:
+      (Get-CimInstance Win32_OperatingSystem).OSArchitecture
+  Ket qua hien "64-bit" -> dung thu muc cai-node-js/x64/.
+  Ket qua hien "32-bit" -> dung thu muc cai-node-js/x86/.
+  (Hoac vao Settings > System > About, xem dong "System type".)
+  Wyse 3040 chi co 2GB RAM - he thong nay nhe (server + script Node vai
+  chuc MB RAM) nen van chay duoc, nhung tranh mo them nhieu ung dung nang
+  khac cung luc tren may do.
+
+CAU TRUC THU MUC NAY
+---------------------
+Wyse 5070/  (ten thu muc, dung chung duoc cho ca Wyse 3040)
+  HUONG_DAN_SU_DUNG.txt        <- file dang doc
+  cai-node-js/
+    x64/    <- bo cai Node.js 64-bit (dung cho may bao "64-bit" o tren)
+    x86/    <- bo cai Node.js 32-bit (dung cho may bao "32-bit" - vd nhieu
+               may Wyse 3040)
+    Moi thu muc co san 2 file: 1 ban .msi (cai dat, can quyen admin) va 1
+    ban .zip portable (giai nen la chay, khong can admin) - xem Buoc 2.
+  firmware-esp32/
+    GpsSmsSender/               <- code nap cho ESP32 GUI (o hien truong)
+    SmsReceiverUSB/             <- code nap cho ESP32 NHAN (cam vao may Wyse)
+    ATBridge/                   <- cong cu debug rieng, KHONG bat buoc (xem
+                                    muc "XU LY SU CO" ben duoi)
+  may-nhan-SMS/                 <- toan bo web + script chay TREN MAY WYSE
+    nhan-sms-tu-dong-server.js  <- server web local
+    nhan-sms-tu-dong-tool.html  <- trang ban do (server tu mo, khong can bam)
+    thong-tin-thiet-bi-tool.html  <- trang dat ten thiet bi theo so dien
+                                    thoai (xem muc "DAT TEN THIET BI" ben
+                                    duoi) - mo qua link tren trang ban do,
+                                    khong can bam file rieng
+    chay-thong-tin-thiet-bi-tool.bat <- (it dung, xem muc "DAT TEN THIET BI")
+    doc-sms-qua-esp32-usb.js    <- script doc du lieu tu ESP32 NHAN qua USB
+    doc-sms-qua-dien-thoai-adb.js <- (thay the) doc SMS truc tiep tu dien
+                                    thoai Android cam USB, KHONG can ESP32
+                                    NHAN/module SIM rieng - xem muc rieng ben
+                                    duoi neu muon dung cach nay thay vi ESP32
+    nhan-sms-tu-dong-esp32-usb.bat      <- bam file nay de chay TOAN BO (cach ESP32)
+    nhan-sms-tu-dong-dien-thoai-adb.bat <- bam file nay de chay TOAN BO (cach dien thoai)
+    node_modules/                 <- thu vien serialport DA CAI SAN (xem Buoc 2b),
+                                    KHONG can npm install qua mang nua
+    vendor/, da-nang-pmtiles-data.js, package.json... <- thu vien/du lieu ban
+                                    do, KHONG can dong vao, chi de yen
+
+===========================================================
+BUOC 1 - NAP FIRMWARE CHO 2 CON ESP32 (chi lam 1 lan/moi con)
+===========================================================
+Can may tinh co cai Arduino IDE (khong nhat thiet la may Wyse - co the nap
+tu may khac roi mang ESP32 da nap xong toi day).
+
+1a. ESP32 GUI (firmware-esp32/GpsSmsSender/GpsSmsSender.ino)
+    - Phan cung: ESP32 + module GPS (NEO-6M) + module SIM 4G A7680C + nguon
+      rieng cho module SIM (3.4-4.2V, chiu dong dinh ~2A - KHONG lay tu chan
+      3.3V/5V/VIN cua ESP32).
+    - File secrets.h di kem da co san so dien thoai nhan (SIM gan trong ESP32
+      NHAN). NEU doi sang SIM nhan khac, phai sua dong PHONE_NUMBER trong
+      GpsSmsSender/secrets.h truoc khi nap, dinh dang quoc te vd "+84987654321"
+      (KHONG so 0 dau).
+    - Thu vien can cai qua Library Manager: TinyGPSPlus.
+    - Nap xong, dat ESP32 nay o vi tri can theo doi (co nguon rieng, KHONG
+      can cam vao may tinh nao nua).
+
+1b. ESP32 NHAN (firmware-esp32/SmsReceiverUSB/SmsReceiverUSB.ino)
+    - Phan cung: ESP32 + module SIM 4G A7680C (SIM nay la so dien thoai da
+      dien trong PHONE_NUMBER o buoc 1a). KHONG can GPS.
+    - Khong can thu vien them, khong can secrets.h.
+    - Day noi module SIM -> ESP32 (giu nguyen theo comment dau file .ino):
+        VBAT/VCC  -> nguon ngoai rieng 3.4-4.2V (KHONG lay tu ESP32)
+        GND       -> GND chung voi ESP32
+        TXD       -> GPIO16 (ESP32 RX2)
+        RXD       -> GPIO17 (ESP32 TX2)
+        PWRKEY/RST -> de troi, khong noi gi
+    - Nap xong, con ESP32 nay se LA con cam USB vao may Wyse khi dung thuc
+      te (day USB vua cap nguon vua truyen du lieu ve may tinh).
+    - (Tuy chon) Neu muon ban do hien ten rieng (vd "Xe may 1") thay vi so
+      dien thoai tho, KHONG can sua code/nap lai firmware nua - dung trang
+      "Thong tin thiet bi" o Buoc 3 ben duoi (danh cho nguoi dung hang ngay,
+      khong can biet code). Cach sua thang KNOWN_SENDERS trong
+      SmsReceiverUSB.ino (vi du comment san trong file) van con dung duoc
+      nhung it dung hon vi phai nap lai firmware moi lan doi ten.
+
+===========================================================
+BUOC 2 - CHUAN BI MAY WYSE - CHI LAM 1 LAN, KHONG CAN INTERNET
+===========================================================
+Toan bo phan nay KHONG can internet - bo cai Node.js va thu vien can thiet
+da duoc tai san va dong goi ngay trong thu muc nay roi.
+
+2a. Cai Node.js (ban LTS v22.23.2 "Jod"):
+    - Truoc tien xac dinh may Wyse nay la 64-bit hay 32-bit (xem muc "QUAN
+      TRONG - WYSE 3040 vs WYSE 5070" o dau file).
+    - Vao dung thu muc cai-node-js/x64/ (hoac x86/ neu may 32-bit), bam dup
+      file .msi trong do.
+    - Cai dat nhu binh thuong (Next > Next > Install) - bo cai se tu them
+      "node" va "npm" vao PATH cua Windows, khong can chinh gi them.
+    - Kiem tra da cai xong: mo PowerShell MOI (phai mo cua so moi de PATH
+      cap nhat), go:
+        node -v
+      Neu hien "v22.23.2" la OK.
+    - Neu may khong co quyen admin de chay .msi, dung ban .zip portable
+      trong cung thu muc do thay the - xem muc "KHONG CO QUYEN ADMIN" o
+      cuoi file nay.
+
+2b. Thu vien serialport (cho script doc USB): KHONG can lam gi ca - thu muc
+    may-nhan-SMS/node_modules/ da duoc dong goi san (bao gom file nhi phan
+    .node cho ca Windows x64 va x86), sao chep nguyen thu muc "Wyse 5070"
+    nay sang may la dung duoc ngay, khong can chay "npm install" nua.
+
+2c. Driver USB-serial cho ESP32 NHAN (chi can neu Windows KHONG tu nhan ra
+    cong COM khi cam ESP32 vao - xem chi tiet cach kiem tra o muc "XU LY SU
+    CO" ben duoi):
+    - Board ESP32 dung trong du an nay dung chip CP2102 (Silicon Labs) de
+      chuyen USB <-> serial. Bo driver chinh hang da tai san trong
+      driver-cp2102/CP210x_Windows_Drivers.zip - KHONG can internet.
+    - Cach cai: giai nen file zip do, vao dung thu muc theo kien truc may
+      (CP210xVCPInstaller_x64.exe cho may 64-bit, _x86.exe cho may 32-bit -
+      xem lai muc "QUAN TRONG - WYSE 3040 vs WYSE 5070" o dau file), chay
+      file .exe do, cai nhu binh thuong. Can quyen admin.
+    - Cam lai ESP32 sau khi cai xong (rut ra cam lai, hoac restart may neu
+      van khong len).
+    - Neu board dang dung lai la loai chip KHAC (vd CH340 thay vi CP2102 -
+      xem cach phan biet o muc "XU LY SU CO"), bo driver nay se KHONG dung
+      duoc - can tim driver CH340 rieng (chua co san trong bo nay, can
+      internet 1 lan tu 1 may khac de tai roi mang qua).
+
+===========================================================
+BUOC 3 - CHAY HANG NGAY (khong can lam lai Buoc 1, 2 nua)
+===========================================================
+1. Cam ESP32 NHAN (da nap SmsReceiverUSB.ino) vao may Wyse bang day USB.
+2. Vao thu muc may-nhan-SMS, bam dup (hoac "Run") file:
+       nhan-sms-tu-dong-esp32-usb.bat
+   - No tu mo 1 cua so server ban do (cua so nay GIU MO trong luc dung, dong
+     cua so nay la tat toan bo he thong).
+   - Roi no hoi "Nhap cong COM cua ESP32": neu chua biet cong nao, cu bam
+     Enter de trong -> no tu liet ke danh sach cong COM dang co (vd COM5,
+     COM7...) -> chay lai file .bat, lan nay go dung ten cong (vd COM5).
+   - Cong ESP32 thuong la cong MOI xuat hien khi vua cam day USB vao (kiem
+     tra Device Manager > Ports (COM & LPT) neu can chac chan). Neu chua co
+     driver CP210x/CH340, Windows co the khong nhan ra cong - cai driver
+     tuong ung roi cam lai.
+3. Khi cong mo thanh cong, cua so nay se hien "Da mo cong COMx... dang doc
+   SMS tu dong". Trinh duyet cung se tu mo sang trang ban do.
+4. Cho ESP32 GUI (o hien truong) gui 1 tin SMS moi toi. Trong vong toi da
+   20 giay, cua so script se hien dong "Nhan toa do: ... -> lat, lon", va
+   marker se hien/cap nhat tren ban do trong trinh duyet.
+5. MUON DUNG HAN: dong ca 2 cua so (cua so server + cua so script doc USB),
+   hoac dong cua so may (ca 2 se tu dong theo neu mo tu 1 cua so cmd chung).
+
+DAT TEN THIET BI (hien ten rieng thay vi so dien thoai tren ban do)
+---------------------------------------------------------------------
+Tren trang ban do (nhan-sms-tu-dong-tool.html), o cot trai co nut "Thong tin
+thiet bi" - bam vao se mo 1 tab moi la trang danh ba so dien thoai/ten
+thiet bi. Dien so dien thoai (so ESP32 GUI/dien
+thoai dung de gui SMS toa do) va ten muon hien (vd "Xe may 1"), du lieu tu
+luu lai NGAY va ban do se tu doi ten thiet bi do trong lan cap nhat vi tri
+tiep theo (khong can khoi dong lai gi ca). Co the dien tay tung dong, hoac
+bam "Nhap tu Excel (.xlsx)" de nhap hang loat (cot 1 la so dien thoai, cot 2
+la ten). LUU Y: trang nay PHAI mo qua dung nut/link tren (tuc la qua server
+dang chay o 127.0.0.1:8899) thi du lieu moi len duoc ban do - neu bam thang
+file chay-thong-tin-thiet-bi-tool.bat (mo truc tiep bang file, khong qua
+server) thi trang van dung duoc nhung chi luu rieng tren trinh duyet do
+(pill "Chi luu tren may nay" thay vi "Dong bo voi ban do"), KHONG hien len
+ban do.
+
+CACH THAY THE - dung dien thoai Android thay vi ESP32 NHAN
+------------------------------------------------------------
+Neu khong co san ESP32 NHAN + module SIM ma co san 1 dien thoai Android
+(SIM nhan gan trong dien thoai do), co the bo qua het Buoc 1b va dung:
+    nhan-sms-tu-dong-dien-thoai-adb.bat
+Can chuan bi truoc (xem chi tiet comment dau file doc-sms-qua-dien-thoai-adb.js):
+  1. Cai "Android Platform Tools" (co adb.exe), them vao PATH.
+  2. Tren dien thoai: bat "Tuy chon nha phat trien" > "Go loi USB" (USB
+     debugging), cam USB vao PC, bam "Cho phep" khi dien thoai hoi.
+LUU Y: cach nay CHUA duoc kiem chung tren thiet bi that (chi test bang du
+lieu gia lap khi viet script) - neu bi loi "Permission denied" hoac khong
+doc duoc SMS moi du dien thoai co tin nhan, day la gioi han cua ROM/Android
+(mot so may chan quyen doc content://sms/inbox qua adb), khong phai loi cu
+phap - quay lai dung cach ESP32 NHAN (on dinh hon, da test).
+
+===========================================================
+XU LY SU CO THUONG GAP
+===========================================================
+- Cam ESP32 NHAN vao may nhung KHONG THAY cong COM nao moi xuat hien (kiem
+  tra: mo PowerShell, go lenh sau, TRUOC va SAU khi cam ESP32 de so sanh:
+      [System.IO.Ports.SerialPort]::GetPortNames()
+  hoac mo Device Manager > Ports (COM & LPT)):
+  1. Trong Device Manager, xem co muc nao nam duoi nhom "Other devices" voi
+     dau cham than vang khong -> co nghia la Windows thay thiet bi nhung
+     CHUA co driver dung. Bam vao muc do xem ten chip (thuong ghi "CP210x"
+     hoac tuong tu) de xac nhan dung loai truoc khi cai driver o Buoc 2c.
+  2. Neu Device Manager KHONG hien gi ca du da cam (khong co "Other
+     devices", khong co gi thay doi truoc/sau khi cam) -> nhieu kha nang la
+     DAY USB chi sac, khong co day du lieu (rat hay gap voi day di kem
+     board ESP32). Thu doi sang day khac chac chan co truyen du lieu (vd
+     day tung dung de nap firmware qua Arduino IDE).
+  3. Neu da chac chan la thieu driver (buoc 1 xac nhan) va dung chip CP2102
+     -> lam theo Buoc 2c o tren (driver da co san trong driver-cp2102/,
+     khong can internet).
+
+- "Khong mo duoc cong COMx" khi chay script:
+  Co chuong trinh khac (thuong la Arduino IDE Serial Monitor) dang giu cong
+  do. Chi 1 chuong trinh giu duoc 1 cong COM tai 1 thoi diem - dong het
+  chuong trinh kia roi chay lai .bat.
+
+- Da thay dong "Nhan toa do..." nhung web khong hien marker:
+  Kiem tra cua so server (nhan-sms-tu-dong-server.js) co con mo khong / co
+  bao loi gi khong. Trang web tu poll lai moi 6 giay - F5 lai trang de chac
+  chan dang xem du lieu moi nhat.
+
+- Nghi ngo day noi module SIM sai / muon xem phan hoi AT command tho:
+  Nap tam firmware-esp32/ATBridge/ATBridge.ino (cong cu rieng, cho phep go
+  lenh AT thu cong qua Serial Monitor de kiem tra module SIM con song
+  khong, SIM co nhan dien khong...). Nap lai SmsReceiverUSB.ino sau khi
+  kiem tra xong.
+
+- ESP32 GUI gui SMS bao loi mang (vd "+CMS ERROR: Network timeout") o MOI
+  lan gui, du song/SIM binh thuong khi dung tren dien thoai:
+  Nhieu kha nang la nha mang (vd Viettel) tam khoa gui SMS do SIM vua doi
+  sang thiet bi moi (xac thuc "doi may"), CAN goi hotline/app nha mang de
+  xac thuc lai - khong phai loi code/day noi.
+
+- ESP32 tu reset (thay dong chu "ets Jul 29 2019...") khi vua cam USB hoac
+  vua mo cong COM: BINH THUONG, khong phai loi - cac chip USB-serial tren
+  board (CP2102/CH340) tu dong reset ESP32 moi khi co chuong trinh moi mo
+  cong. Cu de no chay tiep, khong can can thiep gi.
+
+- Cai file .msi bao loi/khong chay tren Wyse 3040:
+  Kha nang cao la dung nham kien truc (cai ban x64 tren may dang chay Windows
+  32-bit). Kiem tra lai bang lenh PowerShell o muc "QUAN TRONG - WYSE 3040
+  vs WYSE 5070" dau file, roi chuyen sang dung thu muc cai-node-js/x86/.
+
+===========================================================
+KHONG CO QUYEN ADMIN TREN MAY (khong chay duoc file .msi)
+===========================================================
+Dung ban portable (giai nen, khong can cai dat/khong can quyen admin) - cung
+da tai san, nam CUNG thu muc voi ban .msi (x64/ hoac x86/ tuy may):
+  1. Giai nen file .zip trong do ra bat ky dau, vi du C:\node-portable\
+     (sau khi giai nen se co dang C:\node-portable\node-v22.23.2-win-x64\node.exe
+     hoac ...-win-x86\node.exe tuy ban da giai nen).
+  2. Trong cac file .bat o may-nhan-SMS/, sua chu "node" thanh duong dan day
+     du toi node.exe vua giai nen, vi du dong:
+        node nhan-sms-tu-dong-server.js
+     sua thanh:
+        "C:\node-portable\node-v22.23.2-win-x64\node.exe" nhan-sms-tu-dong-server.js
+     (sua ca 2 cho co chu "node " trong tung file .bat, va truoc "node
+     doc-sms-qua-esp32-usb.js" trong PowerShell/cmd khi chay tay).
+  3. Cach nay khong can chinh PATH he thong (vi khong co quyen admin thi
+     thuong cung khong sua duoc PATH he thong), chi can duong dan day du la
+     chay duoc.
+
+===========================================================
+GHI CHU BAO MAT
+===========================================================
+- File firmware-esp32/GpsSmsSender/secrets.h co san SO DIEN THOAI THAT dang
+  dung. Neu chuyen bo nay cho nguoi khac/may khac ngoai y muon, nen xoa/sua
+  lai gia tri PHONE_NUMBER truoc.
+- Toan bo he thong nay KHONG dung internet/server ben ngoai - moi thu chay
+  noi bo (127.0.0.1) tren chinh may Wyse, khong co rui ro lo du lieu ra
+  ngoai qua mang.

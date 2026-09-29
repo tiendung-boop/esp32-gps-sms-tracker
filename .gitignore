@@ -1,0 +1,26 @@
+CLAUDE.md
+.claude/
+.vscode/
+node_modules/
+*.log
+
+# Secrets (copy secrets.h.example -> secrets.h)
+secrets.h
+
+# Runtime state
+.adb-sms-last-seen.json
+
+# Large offline map data (see lam_viec/HUONG_DAN.txt to rebuild)
+*.pmtiles
+da-nang-pmtiles-data.js
+da-nang-roads-data.js
+
+# Deployment bundle: installers/drivers and duplicated copies - keep only the guide
+Wyse 5070/*
+!Wyse 5070/HUONG_DAN_SU_DUNG.txt
+
+# Documents / datasheets
+*.doc
+*.docx
+*.pptx
+*.pdf
