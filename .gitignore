@@ -24,3 +24,9 @@ Wyse 5070/*
 *.docx
 *.pptx
 *.pdf
+
+# KiCad: per-user view state, DRC reports, backups
+*.kicad_prl
+pcb/**/drc.json
+*-backups/
+fp-info-cache
